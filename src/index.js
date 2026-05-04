@@ -1,5 +1,7 @@
 const http = require('http');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
 const { Telegraf } = require('telegraf');
 const { Pool } = require('pg');
 const Redis = require('ioredis');
@@ -118,22 +120,185 @@ async function start() {
 
   const webhookMiddleware = bot ? bot.webhookCallback(WEBHOOK_PATH) : null;
 
-  const server = http.createServer((req, res) => {
-    const requestUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const server = http.createServer(async (req, res) => {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'GET' && requestUrl.pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, bot: Boolean(bot) }));
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
       return;
     }
 
-    if (bot && req.method === 'POST' && requestUrl.pathname === WEBHOOK_PATH) {
+    const requestUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const pathname = requestUrl.pathname;
+
+    function sendJson(statusCode, data) {
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    }
+
+    if (req.method === 'GET' && pathname === '/health') {
+      sendJson(200, { ok: true, bot: Boolean(bot) });
+      return;
+    }
+
+    if (bot && req.method === 'POST' && pathname === WEBHOOK_PATH) {
       webhookMiddleware(req, res);
       return;
     }
 
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not found');
+    // Phase 2: REST API Routes
+    if (req.method === 'GET' && pathname === '/api/signals') {
+      try {
+        const direction = requestUrl.searchParams.get('direction');
+        const limit = parseInt(requestUrl.searchParams.get('limit') || '50', 10);
+        const offset = parseInt(requestUrl.searchParams.get('offset') || '0', 10);
+
+        let query = 'SELECT * FROM signals';
+        const values = [];
+        if (direction && direction !== 'ALL') {
+          query += ' WHERE direction = $1';
+          values.push(direction);
+        }
+        query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        values.push(limit, offset);
+
+        const result = await pool.query(query, values);
+        sendJson(200, result.rows);
+      } catch (err) {
+        console.error('Error fetching signals:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && pathname.startsWith('/api/signals/')) {
+      const id = pathname.split('/')[3];
+      if (!id) return sendJson(400, { error: 'Missing ID' });
+      
+      try {
+        const result = await pool.query('SELECT * FROM signals WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+          sendJson(404, { error: 'Signal not found' });
+        } else {
+          sendJson(200, result.rows[0]);
+        }
+      } catch (err) {
+        console.error('Error fetching signal:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/stats') {
+      try {
+        const totalSignalsRes = await pool.query('SELECT COUNT(*) FROM signals');
+        const subscribedUsersRes = await pool.query('SELECT COUNT(*) FROM users WHERE subscribed = true');
+        const signalsTodayRes = await pool.query("SELECT COUNT(*) FROM signals WHERE created_at >= NOW() - INTERVAL '24 hours'");
+        const lastSignalRes = await pool.query('SELECT created_at FROM signals ORDER BY created_at DESC LIMIT 1');
+
+        sendJson(200, {
+          total_signals: parseInt(totalSignalsRes.rows[0].count, 10),
+          subscribed_users: parseInt(subscribedUsersRes.rows[0].count, 10),
+          signals_today: parseInt(signalsTodayRes.rows[0].count, 10),
+          last_signal_at: lastSignalRes.rows.length > 0 ? lastSignalRes.rows[0].created_at : null
+        });
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/events') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.write(': connected\n\n');
+
+      const subRedis = new Redis(REDIS_URL);
+      let isConnected = true;
+
+      const pollEvents = async () => {
+        let lastId = '$';
+        while (isConnected) {
+          try {
+            const result = await subRedis.xread('BLOCK', 15000, 'STREAMS', 'signals:ready', lastId);
+            if (result && isConnected) {
+              for (const [stream, messages] of result) {
+                for (const [id, fields] of messages) {
+                  lastId = id;
+                  const obj = {};
+                  for (let i = 0; i < fields.length; i += 2) {
+                    obj[fields[i]] = fields[i + 1];
+                  }
+                  if (isConnected) {
+                    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error('SSE Redis error:', err);
+            if (isConnected) await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+      };
+
+      pollEvents();
+
+      req.on('close', () => {
+        isConnected = false;
+        subRedis.quit();
+      });
+      return;
+    }
+
+    // Phase 3: Static File Serving
+    if (req.method === 'GET') {
+      let filePath = path.join(__dirname, '..', 'website', pathname === '/' ? 'index.html' : pathname);
+      
+      // Prevent directory traversal
+      if (!filePath.startsWith(path.join(__dirname, '..', 'website'))) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
+
+      fs.stat(filePath, (err, stats) => {
+        if (err || !stats.isFile()) {
+          // SPA fallback or 404
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Not found');
+          return;
+        }
+
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeTypes = {
+          '.html': 'text/html',
+          '.js': 'text/javascript',
+          '.css': 'text/css',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.svg': 'image/svg+xml',
+          '.json': 'application/json'
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+        res.writeHead(200, { 'Content-Type': contentType });
+        fs.createReadStream(filePath).pipe(res);
+      });
+      return;
+    }
+
+    res.writeHead(405, { 'Content-Type': 'text/plain' });
+    res.end('Method Not Allowed');
   });
 
   server.listen(PORT, () => {

@@ -462,11 +462,8 @@ def save_signal(conn_str: str, signal: dict) -> str:
     try:
         conn = psycopg2.connect(conn_str)
         cur = conn.cursor()
-        query = (
-            "INSERT INTO signals (tickers, direction, confidence, reasoning, source_url, created_at)"
-            " VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"
-        )
-        # Store tickers as Postgres text[] (list of symbol strings)
+
+        # Build tickers as a Postgres text[] of validated symbol strings.
         raw_tickers = signal.get('tickers', [])
         tickers_payload = []
         for t in raw_tickers:
@@ -476,13 +473,49 @@ def save_signal(conn_str: str, signal: dict) -> str:
                 s = t
             if s:
                 tickers_payload.append(str(s).upper())
+
+        # Normalise TEXT[] fields (list of plain strings).
+        positively_affected = [str(x) for x in (signal.get('positively_affected') or []) if x]
+        negatively_affected = [str(x) for x in (signal.get('negatively_affected') or []) if x]
+
+        query = """
+            INSERT INTO signals (
+                tickers, direction, confidence, reasoning, source_url, created_at,
+                time_horizon, root_cause, source_headline, source_name,
+                source_attribution, geography, market_consensus_divergence,
+                investment_thesis, first_order_effects, second_order_effects,
+                positively_affected, negatively_affected, thesis_risks, catalyst_chain
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s
+            ) RETURNING id
+        """
         values = (
+            # --- original 6 columns ---
             tickers_payload,
             signal.get('direction', 'NEUTRAL'),
             signal.get('confidence', 0),
             signal.get('reasoning', ''),
             signal.get('source_url', ''),
             datetime.now(timezone.utc),
+            # --- 14 new rich-signal columns ---
+            signal.get('time_horizon') or None,
+            signal.get('root_cause') or None,
+            signal.get('source_headline') or None,
+            signal.get('source_name') or None,
+            signal.get('source_attribution') or None,
+            signal.get('geography') or None,
+            signal.get('market_consensus_divergence') or None,
+            signal.get('investment_thesis') or None,
+            Json(signal.get('first_order_effects') or []),
+            Json(signal.get('second_order_effects') or []),
+            positively_affected or None,
+            negatively_affected or None,
+            Json(signal.get('thesis_risks') or []),
+            Json(signal.get('catalyst_chain') or []),
         )
         cur.execute(query, values)
         signal_id = cur.fetchone()[0]
