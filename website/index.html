@@ -105,7 +105,7 @@
 <div class="flex items-center gap-6">
 <div class="text-lg font-black text-blue-500 dark:text-blue-400 tracking-widest flex items-center gap-2">
                 MARKETPULSE AI
-                <div class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_#01c896]"></div>
+                <div id="new-signal-indicator" class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_#01c896]"></div>
 </div>
 </div>
 <div class="flex items-center gap-3">
@@ -120,123 +120,32 @@
 <section class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-1">
 <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
 <h2 class="font-headline-sm text-headline-sm text-on-surface">Signal Feed</h2>
-<div class="px-2 py-1 bg-surface-variant text-on-surface-variant font-data-tabular text-data-tabular rounded-sm text-[10px]">
-                    12ms
+<div id="latency-display" class="px-2 py-1 bg-surface-variant text-on-surface-variant font-data-tabular text-data-tabular rounded-sm text-[10px]">
+                    --ms
                 </div>
 </div>
 <div class="px-cell-padding-x py-2 flex gap-1 border-b border-outline-variant bg-surface-container-lowest">
-<button class="flex-1 bg-primary text-on-primary font-label-caps text-label-caps py-1 text-center rounded-sm">ALL</button>
-<button class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BULL</button>
-<button class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BEAR</button>
+<button id="filter-ALL" class="flex-1 bg-primary text-on-primary font-label-caps text-label-caps py-1 text-center rounded-sm">ALL</button>
+<button id="filter-BULL" class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BULL</button>
+<button id="filter-BEAR" class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BEAR</button>
 </div>
-<div class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit bg-surface-dim">
-<!-- Signal Card: Bullish -->
-<div class="bg-surface border border-outline-variant border-l-4 border-l-secondary p-2 cursor-pointer hover:bg-surface-variant transition-colors group">
-<div class="flex justify-between items-start mb-2">
-<div class="flex items-center gap-1 text-secondary font-label-caps text-label-caps">
-<span class="material-symbols-outlined text-[12px]">trending_up</span> BULLISH
-                        </div>
-<span class="font-data-tabular text-data-tabular text-on-surface-variant text-[10px]">Just now</span>
-</div>
-<div class="font-data-tabular text-data-tabular text-on-surface text-sm mb-1 group-hover:text-primary transition-colors">LMT : DEFENSE CONTRACT</div>
-<div class="flex justify-between items-end">
-<span class="font-body-compact text-body-compact text-on-surface-variant text-[11px]">DoD AI Integration</span>
-<span class="font-data-tabular text-data-tabular text-secondary font-bold">92%</span>
-</div>
-</div>
-<!-- Signal Card: Bearish -->
-<div class="bg-surface border border-outline-variant border-l-4 border-l-error p-2 cursor-pointer hover:bg-surface-variant transition-colors">
-<div class="flex justify-between items-start mb-2">
-<div class="flex items-center gap-1 text-error font-label-caps text-label-caps">
-<span class="material-symbols-outlined text-[12px]">trending_down</span> BEARISH
-                        </div>
-<span class="font-data-tabular text-data-tabular text-on-surface-variant text-[10px]">2m ago</span>
-</div>
-<div class="font-data-tabular text-data-tabular text-on-surface text-sm mb-1">INTC : SUPPLY CHAIN</div>
-<div class="flex justify-between items-end">
-<span class="font-body-compact text-body-compact text-on-surface-variant text-[11px]">Substrate Shortage</span>
-<span class="font-data-tabular text-data-tabular text-error font-bold">88%</span>
-</div>
-</div>
-<!-- Signal Card: Neutral -->
-<div class="bg-surface border border-outline-variant border-l-4 border-l-primary-fixed-dim p-2 cursor-pointer hover:bg-surface-variant transition-colors">
-<div class="flex justify-between items-start mb-2">
-<div class="flex items-center gap-1 text-primary-fixed-dim font-label-caps text-label-caps">
-<span class="material-symbols-outlined text-[12px]">horizontal_rule</span> NEUTRAL
-                        </div>
-<span class="font-data-tabular text-data-tabular text-on-surface-variant text-[10px]">5m ago</span>
-</div>
-<div class="font-data-tabular text-data-tabular text-on-surface text-sm mb-1">FED : RATE HOLD</div>
-<div class="flex justify-between items-end">
-<span class="font-body-compact text-body-compact text-on-surface-variant text-[11px]">FOMC Minutes Leaked</span>
-<span class="font-data-tabular text-data-tabular text-primary-fixed-dim font-bold">75%</span>
-</div>
-</div>
+<div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit bg-surface-dim">
+    <!-- Signals populated by app.js -->
 </div>
 </section>
 <!-- Main Area: Center Node Container -->
-<section class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-[2]">
+<section id="center-panel" class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-[2]">
+    <!-- Graph populated by app.js -->
 </section>
 <!-- Right Detail Panel -->
-<section class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-1">
-<div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Analysis Node</h2>
-<span class="material-symbols-outlined text-outline cursor-pointer hover:text-on-surface">close</span>
-</div>
-<div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 bg-surface-dim">
-<!-- Header Status -->
-<div class="flex flex-col items-center text-center">
-<div class="w-16 h-16 rounded-full border-2 border-secondary flex items-center justify-center shadow-[0_0_16px_rgba(67,229,177,0.2)] mb-3">
-<span class="material-symbols-outlined text-[32px] text-secondary">trending_up</span>
-</div>
-<div class="font-display-ticker text-display-ticker text-on-surface">LMT</div>
-<div class="font-label-caps text-label-caps text-secondary tracking-widest mt-1">STRONG BULLISH</div>
-</div>
-<!-- Metrics Grid -->
-<div class="grid grid-cols-2 gap-panel-gap">
-<div class="bg-surface-container-low p-2 border border-outline-variant rounded-sm">
-<div class="font-label-caps text-label-caps text-on-surface-variant mb-1">CONFIDENCE</div>
-<div class="font-data-tabular text-data-tabular text-secondary text-lg">92.4%</div>
-</div>
-<div class="bg-surface-container-low p-2 border border-outline-variant rounded-sm">
-<div class="font-label-caps text-label-caps text-on-surface-variant mb-1">IMPACT HORIZON</div>
-<div class="font-data-tabular text-data-tabular text-on-surface text-lg">T+7d</div>
-</div>
-</div>
-<!-- Causal Chain -->
-<div class="flex flex-col gap-2">
-<div class="font-label-caps text-label-caps text-on-surface-variant">CAUSAL CHAIN</div>
-<div class="bg-surface-container p-3 border border-outline-variant rounded-sm flex flex-col gap-3">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-outline">article</span>
-<span class="font-body-compact text-body-compact text-on-surface text-xs">DoD releases budget proposal</span>
-</div>
-<div class="flex ml-2 border-l border-outline-variant pl-4">
-<span class="material-symbols-outlined text-[16px] text-outline self-center">arrow_downward</span>
-</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-outline">precision_manufacturing</span>
-<span class="font-body-compact text-body-compact text-on-surface text-xs">Aero/Defense Sector Allocation +12%</span>
-</div>
-</div>
-</div>
-<!-- AI Reasoning -->
-<div class="flex flex-col gap-2">
-<div class="font-label-caps text-label-caps text-on-surface-variant">AI REASONING</div>
-<p class="font-body-compact text-body-compact text-on-surface text-xs leading-relaxed text-justify opacity-80">
-                        Synthesizing unstructured news feeds from DoD portals indicates a high probability of advanced drone contract awards favoring established defense contractors. LMT's recent R&amp;D expenditure aligns precisely with the new spec requirements outlined in document SEC-99A. Anticipate pre-market volume surges.
-                    </p>
-</div>
-<button class="w-full mt-auto bg-primary/10 border border-primary text-primary font-label-caps text-label-caps py-3 rounded-sm hover:bg-primary/20 transition-colors">
-                    EXECUTE HEDGE SCRIPT
-                </button>
-</div>
+<section id="analysis-node" class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-1">
+    <!-- Populated by app.js -->
 </section>
 </main>
 <!-- Footer (JSON Injected) -->
 <footer class="fixed bottom-0 w-full h-8 z-50 border-t border-[#1e2d3d] flex justify-between items-center px-4 py-1 bg-[#050810] dark:bg-[#050810]">
-<div class="font-mono text-[10px] tracking-widest text-emerald-500 dark:text-emerald-400">
-            SYS_HEALTH: OPTIMAL | LATENCY: 12ms | CONNECTED: NYC-SEC-01
+<div id="footer-stats" class="font-mono text-[10px] tracking-widest text-emerald-500 dark:text-emerald-400">
+            SYS_HEALTH: OPTIMAL | LATENCY: --ms
         </div>
 <nav class="flex gap-4">
 <a class="font-mono text-[10px] tracking-widest text-slate-600 hover:text-white cursor-default transition-colors" href="#">UPTIME</a>
@@ -244,4 +153,5 @@
 <a class="font-mono text-[10px] tracking-widest text-slate-600 hover:text-white cursor-default transition-colors" href="#">WARRANT_CANARY</a>
 </nav>
 </footer>
+<script src="app.js"></script>
 </body></html>
