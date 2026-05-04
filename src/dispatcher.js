@@ -40,31 +40,82 @@ function formatSignalMessage(obj) {
   const direction = String(obj.direction || 'NEUTRAL').toUpperCase();
   const emoji = direction === 'BULLISH' ? '🟢' : direction === 'BEARISH' ? '🔴' : direction === 'MIXED' ? '🟡' : '⚪';
 
-  const tickers = parseJsonArray(obj.tickers)
-    .map(formatTicker)
-    .filter((x) => x && x.trim());
-  const tickersText = tickers.length ? tickers.map(escapeHtml).join(' · ') : 'N/A';
+  // Tickers: can be a JSON string or an already-parsed array of objects/strings
+  const rawTickers = parseJsonArray(obj.tickers) || [];
+  const normalizedTickers = (Array.isArray(rawTickers) ? rawTickers : [])
+    .map((t) => {
+      if (!t) return null;
+      if (typeof t === 'string') return { symbol: String(t).trim().toUpperCase(), conviction: '' };
+      return { symbol: String(t.symbol || t.SYMBOL || '').trim().toUpperCase(), conviction: String(t.conviction || t.conviction_level || '').trim() };
+    })
+    .filter(Boolean);
+
+  const positivesArr = (parseJsonArray(obj.positively_affected) || []).map((s) => String(s).trim().toUpperCase());
+  const negativesArr = (parseJsonArray(obj.negatively_affected) || []).map((s) => String(s).trim().toUpperCase());
+  const positivesSet = new Set(positivesArr);
+  const negativesSet = new Set(negativesArr);
+
+  const longs = [];
+  const shorts = [];
+  const others = [];
+  const conflicts = [];
+
+  for (const t of normalizedTickers) {
+    const sym = t.symbol || '';
+    const line = formatTicker(t);
+    if (!sym) continue;
+    if (negativesSet.has(sym)) {
+      shorts.push(line);
+      if (positivesSet.has(sym)) conflicts.push(sym);
+    } else if (positivesSet.has(sym)) {
+      longs.push(line);
+    } else {
+      others.push(line);
+    }
+  }
+
+  function horizonWithRange(h) {
+    const key = String(h || '').toLowerCase();
+    if (key.includes('intra')) return 'intraday (0-1 days)';
+    if (key.includes('short')) return 'short-term (1-4 weeks)';
+    if (key.includes('medium')) return 'medium-term (2-6 months)';
+    if (key.includes('long')) return 'long-term (>6 months)';
+    return String(h || 'short-term');
+  }
+
+  function numbered(items) {
+    if (!items || items.length === 0) return 'N/A';
+    return items.map((x, i) => `${i + 1}. ${escapeHtml(String(x))}`).join('\n');
+  }
 
   const firstOrder = toBullets(parseJsonArray(obj.first_order_effects));
   const secondOrder = toBullets(parseJsonArray(obj.second_order_effects));
-  const positives = toBullets(parseJsonArray(obj.positively_affected));
-  const negatives = toBullets(parseJsonArray(obj.negatively_affected));
 
   const confidence = escapeHtml(obj.confidence || 'N/A');
-  const horizon = escapeHtml(obj.time_horizon || 'short-term');
+  const horizon = horizonWithRange(obj.time_horizon);
   const headline = escapeHtml(obj.source_headline || 'Untitled');
   const rootCause = escapeHtml(obj.root_cause || obj.reasoning || 'N/A');
   const sourceAttribution = escapeHtml(obj.source_attribution || 'NewsAPI');
   const sourceName = escapeHtml(obj.source_name || 'NewsAPI');
   const sourceUrl = String(obj.source_url || '').trim();
+  const geography = escapeHtml(obj.geography || 'unspecified');
 
   let sourceLine = sourceAttribution;
   if (sourceUrl) {
-    // Prefer explicit source name with clickable link; include a direct open-link anchor.
     sourceLine = `<a href="${escapeHtml(sourceUrl)}">${sourceName}</a> — <a href="${escapeHtml(sourceUrl)}">open</a>`;
   }
 
-  return [
+  const investmentThesis = escapeHtml(obj.investment_thesis || obj.investment_thesis || 'N/A');
+  const thesisRisks = parseJsonArray(obj.thesis_risks || obj.thesis_risks) || [];
+  const catalystChain = parseJsonArray(obj.catalyst_chain || obj.catalyst_chain) || [];
+
+  const longLine = longs.length ? longs.map(escapeHtml).join(' · ') : 'N/A';
+  const shortLine = shorts.length ? shorts.map(escapeHtml).join(' · ') : 'N/A';
+  const othersLine = others.length ? others.map(escapeHtml).join(' · ') : '';
+
+  const conflictNote = conflicts.length ? `\n⚠️ Conflict: ${conflicts.join(', ')} appears in both positive and negative lists; dispatcher prefers negative impact.` : '';
+
+  const parts = [
     `${emoji} <b>${escapeHtml(direction)}</b> | ${confidence}% confidence | ${horizon}`,
     '',
     `📰 ${headline}`,
@@ -72,23 +123,34 @@ function formatSignalMessage(obj) {
     '🎯 <b>Root Cause</b>',
     rootCause,
     '',
-    '📈 <b>Tickers</b>',
-    tickersText,
+    '💡 <b>Thesis</b>',
+    investmentThesis,
     '',
-    '⚡ <b>First Order</b>',
-    firstOrder,
+    '⚠️ <b>Risks</b>',
+    thesisRisks.length ? thesisRisks.map((r) => `• ${escapeHtml(r)}`).join('\n') : '• N/A',
     '',
-    '🔁 <b>Second Order</b>',
-    secondOrder,
+    `🌍 <b>Geography</b>: ${geography}`,
     '',
-    '📈 <b>Positively Affected</b>',
-    positives,
+    '📈 <b>Long</b>',
+    longLine,
     '',
-    '📉 <b>Negatively Affected</b>',
-    negatives,
-    '',
-    `🗞 <b>Source:</b> ${sourceLine}`,
-  ].join('\n');
+    '📉 <b>Short</b>',
+    shortLine,
+  ];
+
+  if (othersLine) {
+    parts.push('', '📌 <b>Other tickers</b>', othersLine);
+  }
+
+  parts.push('', '⚡ <b>First Order</b>', firstOrder, '', '🔁 <b>Second Order</b>', secondOrder);
+
+  parts.push('', '🔗 <b>Catalyst Chain</b>', catalystChain.length ? numbered(catalystChain) : 'N/A');
+
+  parts.push('', `🗞 <b>Source:</b> ${sourceLine}`);
+
+  if (conflictNote) parts.push('', conflictNote);
+
+  return parts.join('\n');
 }
 
 async function startDispatcher({ pool, bot, redisUrl }) {
@@ -184,4 +246,4 @@ async function startDispatcher({ pool, bot, redisUrl }) {
   }
 }
 
-module.exports = { startDispatcher };
+module.exports = { startDispatcher, formatSignalMessage };
