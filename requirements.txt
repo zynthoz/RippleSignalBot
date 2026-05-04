@@ -1,5 +1,6 @@
 langgraph
 langchain-google-genai
+google-genai
 redis
 psycopg2-binary
 python-dotenv

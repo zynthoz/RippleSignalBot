@@ -1,0 +1,129 @@
+================================================================
+RIPPLE SIGNAL BOT — DEEP SIGNAL ANALYSIS REVIEW
+================================================================
+
+----------------------------------------------------------------
+TEST INPUT
+----------------------------------------------------------------
+
+Title:
+NATO member requests emergency intelligence-sharing expansion
+amid escalating border conflict
+
+Description:
+A NATO member state has formally requested expanded access to
+allied intelligence infrastructure following a series of
+coordinated cross-border incursions. Defense ministries across
+the alliance are convening emergency sessions to assess
+surveillance gaps and autonomous threat detection capabilities.
+
+----------------------------------------------------------------
+MODEL OUTPUT
+----------------------------------------------------------------
+
+Signal:      BULLISH
+Tickers:     PLTR, LMT, NOC, RTX, CACI, KTOS
+Confidence:  95%
+
+Reasoning:
+A formal NATO request for expanded intelligence and threat
+detection capabilities, driven by escalating border conflict,
+directly signals increased spending in the defense sector. This
+event creates immediate demand for advanced ISR, cybersecurity,
+and autonomous systems, benefiting key defense contractors. The
+urgency implied by 'emergency sessions' suggests a short-term
+catalyst for market activity within this sector.
+
+Root Cause:
+Formal request by a NATO member for expanded intelligence access
+due to escalating cross-border incursions, leading to emergency
+alliance sessions.
+
+First-Order Effects:
+- Increased demand and potential funding for intelligence,
+  surveillance, and reconnaissance (ISR) technologies.
+- Heightened focus on defense budgets and procurement within
+  NATO member states.
+
+Second-Order Effects:
+- Potential for other NATO members to initiate similar requests
+  or increase their defense spending.
+- Increased innovation and R&D investment in autonomous threat
+  detection and advanced surveillance capabilities.
+
+Source Attribution:
+Official government statement/request or defense ministry
+reports within NATO.
+
+----------------------------------------------------------------
+POINTS FOR IMPROVEMENT
+----------------------------------------------------------------
+
+1. DESCRIPTION IS TOO THIN
+   The test article lacks specifics — no country named, no scale
+   of conflict, no dollar figures. The model is reasoning well
+   despite vague input. Richer descriptions yield tighter signals.
+
+   Example of a better description:
+   "Poland has formally requested expanded access to allied SIGINT
+   infrastructure following 47 documented drone incursions along
+   the Belarus border. Defense ministers from 12 NATO states
+   convened in Brussels, with early discussions pointing to
+   accelerated procurement of AI-driven ISR platforms and a
+   proposed €2.3B emergency defense fund."
+
+   Specific country + numbers + named technologies = much tighter
+   ticker conviction.
+
+2. CONFIDENCE 95% IS TOO HIGH FOR A REQUEST
+   A formal request is not a signed contract. Confidence should
+   reflect how close the event is to actual capital deployment.
+
+   Suggested confidence scale to add to prompt:
+   - Speculation / request          → 40–60%
+   - Approved budget / policy       → 65–80%
+   - Signed contract / earnings     → 80–95%
+
+3. MISSING NEGATIVELY AFFECTED TICKERS
+   The output has no bearish side. Who loses when defense
+   spending spikes?
+
+   - TLT  — bonds drop when defense spending rises
+   - ARKK — risk-off rotation away from speculative tech
+   - Airlines, consumer discretionary if conflict escalates
+
+4. NO GEOGRAPHIC SCOPING
+   Which NATO member? The theater of conflict implies completely
+   different contractors. Add geographic weighting to the prompt:
+
+   - European theater  → PLTR, KTOS, NATO defense ETF
+   - Pacific theater   → LMT, NOC, HII (naval focus)
+   - Middle East       → RTX, GD, LMT
+
+5. FLAT CONVICTION ACROSS ALL TICKERS
+   PLTR and LMT are near-certain here. CACI and KTOS are
+   plausible but lower conviction. All tickers should not carry
+   equal weight.
+
+   Suggested ticker schema change:
+   "tickers": [
+     {"symbol": "PLTR", "conviction": "high"},
+     {"symbol": "LMT",  "conviction": "high"},
+     {"symbol": "NOC",  "conviction": "high"},
+     {"symbol": "RTX",  "conviction": "medium"},
+     {"symbol": "CACI", "conviction": "medium"},
+     {"symbol": "KTOS", "conviction": "low"}
+   ]
+
+----------------------------------------------------------------
+OVERALL ASSESSMENT
+----------------------------------------------------------------
+Removing the heuristic fallback was the right call — the deep
+signal analysis is now firing correctly. The bones are solid.
+Next priorities are richer input data, a calibrated confidence
+scale, bearish-side coverage, geographic scoping, and per-ticker
+conviction scoring.
+
+================================================================
+END OF REVIEW
+================================================================
