@@ -76,7 +76,7 @@ This document breaks down the implementation of MarketPulse AI into actionable p
     *   Trigger a test article through the pipeline manually.
     *   Verify the AI interprets it, saves it to the DB, and the bot pushes the notification to Telegram.
 *   **5.2 Error & Edge Case Handling**
-    *   Handle empty news API responses.
+    *   Handle empty news API responses.    
     *   Handle Gemini API rate limits/timeouts (add retry logic).
     *   Ensure Telegraf immediately returns a `200 OK` to Telegram webhooks to prevent timeouts.
 *   **5.3 Demo Preparation**
