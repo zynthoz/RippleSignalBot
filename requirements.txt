@@ -1,0 +1,6 @@
+langgraph
+langchain-google-genai
+redis
+psycopg2-binary
+python-dotenv
+SQLAlchemy
