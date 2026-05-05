@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS signals (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tickers TEXT[] NOT NULL,
+    ticker_profiles JSONB,
     direction VARCHAR(50) NOT NULL,
     confidence INTEGER CHECK (confidence >= 0 AND confidence <= 100),
     reasoning TEXT,
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS signals (
 
 -- Migration guards: safely add new columns to existing installs
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS time_horizon VARCHAR(50);
+ALTER TABLE signals ADD COLUMN IF NOT EXISTS ticker_profiles JSONB;
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS root_cause TEXT;
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_headline TEXT;
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_name VARCHAR(255);

@@ -32,6 +32,7 @@ def ensure_signal_columns(conn_str: str) -> None:
     """Add rich signal columns to older databases before the worker runs."""
     statements = [
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS time_horizon VARCHAR(50)',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS ticker_profiles JSONB',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS root_cause TEXT',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_headline TEXT',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_name VARCHAR(255)',
@@ -180,6 +181,62 @@ def verify_ticker_exists(symbol: str) -> bool:
         except Exception:
             _TICKER_CACHE[symbol] = False
             return False
+
+
+def lookup_ticker_profile(symbol: str) -> dict:
+    """Return best-effort company and business metadata for a ticker symbol."""
+    symbol = (symbol or '').strip().upper()
+    if not symbol:
+        return {}
+
+    params = urllib.parse.urlencode({'symbols': symbol})
+    url = f'https://query1.finance.yahoo.com/v7/finance/quote?{params}'
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+
+    try:
+        with urllib.request.urlopen(req, timeout=QUOTE_LOOKUP_TIMEOUT_SEC) as resp:
+            payload = json.loads(resp.read().decode('utf-8', errors='replace'))
+        results = payload.get('quoteResponse', {}).get('result', [])
+        if results:
+            row = results[0]
+            return {
+                'symbol': symbol,
+                'company_name': str(row.get('longName') or row.get('shortName') or symbol).strip(),
+                'business_type': str(row.get('industry') or row.get('sector') or row.get('quoteType') or '').strip(),
+                'sector': str(row.get('sector') or '').strip(),
+                'industry': str(row.get('industry') or '').strip(),
+                'quote_type': str(row.get('quoteType') or '').strip(),
+            }
+    except Exception:
+        pass
+
+    try:
+        search_params = urllib.parse.urlencode({'q': symbol})
+        search_url = f'https://query1.finance.yahoo.com/v1/finance/search?{search_params}'
+        search_req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(search_req, timeout=QUOTE_LOOKUP_TIMEOUT_SEC) as resp:
+            payload = json.loads(resp.read().decode('utf-8', errors='replace'))
+
+        quotes = payload.get('quotes', [])
+        exact = None
+        for q in quotes:
+            if str(q.get('symbol', '')).upper() == symbol:
+                exact = q
+                break
+
+        if exact:
+            return {
+                'symbol': symbol,
+                'company_name': str(exact.get('longname') or exact.get('shortname') or symbol).strip(),
+                'business_type': str(exact.get('industry') or exact.get('sector') or exact.get('quoteType') or '').strip(),
+                'sector': str(exact.get('sector') or '').strip(),
+                'industry': str(exact.get('industry') or '').strip(),
+                'quote_type': str(exact.get('quoteType') or '').strip(),
+            }
+    except Exception:
+        pass
+
+    return {'symbol': symbol}
 
 
 def verify_tickers_exist(tickers):
@@ -640,6 +697,7 @@ def save_signal(conn_str: str, signal: dict) -> str:
         # Build tickers as a Postgres text[] of validated symbol strings.
         raw_tickers = signal.get('tickers', [])
         tickers_payload = []
+        ticker_profiles = signal.get('ticker_profiles') or []
         for t in raw_tickers:
             if isinstance(t, dict):
                 s = t.get('symbol') or t.get('ticker')
@@ -654,14 +712,14 @@ def save_signal(conn_str: str, signal: dict) -> str:
 
         query = """
             INSERT INTO signals (
-                tickers, direction, confidence, reasoning, source_url, created_at,
+                tickers, ticker_profiles, direction, confidence, reasoning, source_url, created_at,
                 time_horizon, root_cause, source_headline, source_name,
                 source_attribution, geography, market_consensus_divergence,
                 investment_thesis, first_order_effects, second_order_effects,
                 positively_affected, negatively_affected, thesis_risks, catalyst_chain,
                 relationship_graph
             ) VALUES (
-                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
@@ -672,6 +730,7 @@ def save_signal(conn_str: str, signal: dict) -> str:
         values = (
             # --- original 6 columns ---
             tickers_payload,
+            Json(ticker_profiles),
             signal.get('direction', 'NEUTRAL'),
             signal.get('confidence', 0),
             signal.get('reasoning', ''),
@@ -710,6 +769,7 @@ def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
         payload = {
             'id': signal_id,
             'tickers': json.dumps(signal.get('tickers', [])),
+            'ticker_profiles': json.dumps(signal.get('ticker_profiles', [])),
             'direction': signal.get('direction', 'NEUTRAL'),
             'confidence': str(signal.get('confidence', 0)),
             'time_horizon': str(signal.get('time_horizon', 'short-term')),
@@ -815,6 +875,7 @@ def main() -> int:
                     if not kept and verified_symbols:
                         kept = [{'symbol': s, 'conviction': 'medium'} for s in verified_symbols]
                     signal['tickers'] = kept
+                    signal['ticker_profiles'] = [lookup_ticker_profile(s) for s in verified_symbols]
 
                     # Source attribution and confidence normalization.
                     source_hint = classify_source_origin(article)

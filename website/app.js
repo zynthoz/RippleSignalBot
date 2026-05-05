@@ -630,35 +630,25 @@ function shortLabel(text, maxWords = 4) {
     return words.slice(0, maxWords).join(' ');
 }
 
-// Well-known ticker → company name lookup
-const TICKER_COMPANIES = {
-    AAPL:'Apple',MSFT:'Microsoft',GOOGL:'Alphabet',GOOG:'Alphabet',AMZN:'Amazon',META:'Meta Platforms',
-    NVDA:'NVIDIA',TSLA:'Tesla',AMD:'AMD',INTC:'Intel',AVGO:'Broadcom',QCOM:'Qualcomm',TXN:'Texas Instruments',
-    AMAT:'Applied Materials',LRCX:'Lam Research',KLAC:'KLA Corp',ASML:'ASML',MU:'Micron',
-    CRM:'Salesforce',ORCL:'Oracle',ADBE:'Adobe',NOW:'ServiceNow',SNOW:'Snowflake',PLTR:'Palantir',
-    JPM:'JPMorgan Chase',BAC:'Bank of America',GS:'Goldman Sachs',MS:'Morgan Stanley',WFC:'Wells Fargo',C:'Citigroup',
-    V:'Visa',MA:'Mastercard',PYPL:'PayPal',SQ:'Block',COIN:'Coinbase',
-    NFLX:'Netflix',DIS:'Disney',CMCSA:'Comcast',SNAP:'Snap',CRWD:'CrowdStrike',
-    XOM:'ExxonMobil',CVX:'Chevron',OXY:'Occidental',SLB:'Schlumberger',COP:'ConocoPhillips',
-    BA:'Boeing',LMT:'Lockheed Martin',RTX:'RTX/Raytheon',GD:'General Dynamics',NOC:'Northrop Grumman',
-    GE:'GE Aerospace',HON:'Honeywell',CAT:'Caterpillar',DE:'John Deere',MMM:'3M',
-    UNH:'UnitedHealth',JNJ:'Johnson & Johnson',PFE:'Pfizer',LLY:'Eli Lilly',ABBV:'AbbVie',MRK:'Merck',
-    GEHC:'GE HealthCare',ABT:'Abbott Labs',TMO:'Thermo Fisher',ISRG:'Intuitive Surgical',
-    WMT:'Walmart',COST:'Costco',TGT:'Target',HD:'Home Depot',LOW:"Lowe's",AMGN:'Amgen',
-    KO:'Coca-Cola',PEP:'PepsiCo',MCD:"McDonald's",SBUX:'Starbucks',NKE:'Nike',
-    APD:'Air Products',LIN:'Linde',ECL:'Ecolab',SHW:'Sherwin-Williams',DD:'DuPont',
-    NEE:'NextEra Energy',VST:'Vistra',CEG:'Constellation Energy',ETR:'Entergy',SO:'Southern Company',
-    SPY:'S&P 500 ETF',QQQ:'Nasdaq 100 ETF',XLK:'Tech Select ETF',XLE:'Energy Select ETF',
-    XLF:'Financial Select ETF',XLV:'Health Care ETF',XLI:'Industrial Select ETF',ITA:'US Aerospace & Defense ETF',
-    UAL:'United Airlines',DAL:'Delta Air Lines',LUV:'Southwest Airlines',AAL:'American Airlines',
-    JBLU:'JetBlue',DLTR:'Dollar Tree',RH:'RH/Restoration Hardware',LVMUY:'LVMH',
-    F:'Ford',GM:'General Motors',RIVN:'Rivian',LCID:'Lucid',
-    SLV:'Silver ETF',GLD:'Gold ETF',USO:'Oil ETF',XLP:'Consumer Staples ETF',
-    MRK:'Merck',GILD:'Gilead Sciences',BIIB:'Biogen',REGN:'Regeneron',MRNA:'Moderna',
-};
+function normalizeTickerProfiles(value) {
+    const list = parseMaybeJson(value, value);
+    if (!Array.isArray(list)) return [];
 
-function getCompanyName(sym) {
-    return TICKER_COMPANIES[sym.toUpperCase()] || '';
+    return list
+        .map((item) => {
+            if (!item || typeof item !== 'object') return null;
+            const symbol = String(item.symbol || item.ticker || '').trim().toUpperCase();
+            if (!symbol) return null;
+            return {
+                symbol,
+                company_name: String(item.company_name || item.long_name || item.short_name || item.name || symbol).trim(),
+                business_type: String(item.business_type || item.industry || item.sector || item.quote_type || '').trim(),
+                sector: String(item.sector || '').trim(),
+                industry: String(item.industry || '').trim(),
+                quote_type: String(item.quote_type || '').trim(),
+            };
+        })
+        .filter(Boolean);
 }
 
 function initD3Graph(signal, topology) {
@@ -677,8 +667,11 @@ function initD3Graph(signal, topology) {
     const negativeSet = new Set(normalizeTextList(signal.negatively_affected).map(s => s.toUpperCase()));
     const allTickers = normalizeTickerList(signal.tickers);
     const rawTickerList = parseMaybeJson(signal.tickers, []);
+    const tickerProfiles = normalizeTickerProfiles(signal.ticker_profiles);
 
     function tickerMeta(sym) {
+        const profile = tickerProfiles.find((t) => t.symbol === sym);
+        if (profile) return profile;
         if (!Array.isArray(rawTickerList)) return null;
         return rawTickerList.find(t => typeof t === 'object' && t && String(t.symbol || t.ticker || '').toUpperCase() === sym) || null;
     }
@@ -739,28 +732,8 @@ function initD3Graph(signal, topology) {
         const col = impact === 'positive' ? '#a3ffb4' : impact === 'negative' ? '#ff7a7a' : '#8d99ae';
         const id = nid('tk');
         const why = m && m.why_it_matters ? String(m.why_it_matters) : `${impact.toUpperCase()} impact on ${sym}`;
-        const company = getCompanyName(sym);
-
-        let companyType = '';
-        if (topology && Array.isArray(topology.branches)) {
-            for (const b of topology.branches) {
-                const searchNodes = (list) => {
-                    for (const n of list) {
-                        if (n.ticker && n.ticker.toUpperCase() === sym) return n;
-                        if (n.children) {
-                            const found = searchNodes(n.children);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                };
-                const match = searchNodes(b.nodes || []);
-                if (match && match.kind && match.kind.toLowerCase() !== 'ticker') {
-                    companyType = match.kind;
-                    break;
-                }
-            }
-        }
+        const company = m ? String(m.company_name || sym).trim() : sym;
+        const companyType = m ? String(m.business_type || m.industry || m.sector || m.quote_type || '').trim() : '';
 
         nodes.push({
             id, label: sym, ticker: sym, companyName: company, companyType: companyType, group: 'ticker', layer: 3,
@@ -952,11 +925,15 @@ function initD3Graph(signal, topology) {
             groupLabel = d.companyType.toUpperCase();
         }
 
+        const tickerDescriptor = d.group === 'ticker'
+            ? [d.companyName, d.companyType].filter(Boolean).join(' · ')
+            : '';
+
         tooltip.transition().duration(200).style("opacity", 1);
         tooltip.html(
             `<div class="text-[10px] tracking-wider font-semibold mb-1" style="color:${d.color};">${escapeHtml(groupLabel)}</div>` +
             (d.ticker ? `<div class="font-bold text-lg text-on-surface mb-0.5">${escapeHtml(d.ticker)}</div>` : '') +
-            (d.companyName ? `<div class="text-xs text-on-surface-variant mb-2">${escapeHtml(d.companyName)}</div>` : '') +
+            (tickerDescriptor ? `<div class="text-xs text-on-surface-variant mb-2">${escapeHtml(tickerDescriptor)}</div>` : '') +
             (!d.ticker && d.group !== 'root' ? `<div class="mb-2 text-[13px] font-semibold text-on-surface">${escapeHtml(d.label)}</div>` : '') +
             (d.directionInfo ? `<span class="inline-block bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-medium mr-2" style="color:${d.color}">${d.directionInfo}</span> ` : '') +
             (d.conviction && d.group !== 'root' ? `<span class="text-[10px] text-on-surface-variant font-medium">${d.conviction.toUpperCase()} CONVICTION</span>` : '') +
