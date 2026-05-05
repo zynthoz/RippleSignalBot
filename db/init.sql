@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS signals (
     positively_affected TEXT[],
     negatively_affected TEXT[],
     thesis_risks JSONB,
-    catalyst_chain JSONB
+    catalyst_chain JSONB,
+    relationship_graph JSONB
 );
 
 -- Migration guards: safely add new columns to existing installs
@@ -48,3 +49,4 @@ ALTER TABLE signals ADD COLUMN IF NOT EXISTS positively_affected TEXT[];
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS negatively_affected TEXT[];
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS thesis_risks JSONB;
 ALTER TABLE signals ADD COLUMN IF NOT EXISTS catalyst_chain JSONB;
+ALTER TABLE signals ADD COLUMN IF NOT EXISTS relationship_graph JSONB;

@@ -12,8 +12,9 @@ const MAX_ARTICLE_AGE_HOURS = 72; // Only consider articles from the last 72 hou
 // Centralized config object — change batch size here
 const CONFIG = {
   batchSize: parseInt(process.env.NEWS_BATCH_SIZE || '20', 10),
-  dedupeEnabled: process.env.NEWS_DEDUPE_ENABLED !== 'true',
+  dedupeEnabled: process.env.NEWS_DEDUPE_ENABLED !== 'false',
   seenTtlSeconds: parseInt(process.env.NEWS_SEEN_TTL_SECONDS || '86400', 10),
+  pendingTtlSeconds: parseInt(process.env.NEWS_PENDING_TTL_SECONDS || '900', 10),
 };
 
 const redis = new Redis(REDIS_URL);
@@ -24,31 +25,142 @@ function hash(text) {
   return crypto.createHash('md5').update(text).digest('hex');
 }
 
+function getFingerprintBase(article) {
+  return article.url
+    || article.source_url
+    || `${article.title || article.source_headline || ''}|${article.publishedAt || article.created_at || ''}`;
+}
+
 function getSeenKey(article) {
-  const base = article.url || `${article.title || ''}|${article.publishedAt || ''}`;
+  const base = getFingerprintBase(article);
   return `article:${hash(base)}`;
+}
+
+function getPendingKey(article) {
+  return `${getSeenKey(article)}:pending`;
 }
 
 // Redis-backed recurring/seen checker so repeated polls don't republish the same story.
 // Returns { seen: boolean, reason: string, key: string }
 async function checkIfSeen(article) {
   const key = getSeenKey(article);
+  const pendingKey = getPendingKey(article);
   if (!CONFIG.dedupeEnabled) {
-    return { seen: false, reason: 'dedupe disabled', key };
+    return { seen: false, reason: 'dedupe disabled', key, pendingKey };
   }
 
-  const cached = await redis.get(key);
+  const [cached, pending] = await Promise.all([redis.get(key), redis.get(pendingKey)]);
   if (cached) {
-    return { seen: true, reason: 'already seen in Redis cache', key };
+    return { seen: true, reason: 'already processed in Redis cache', key, pendingKey };
   }
 
-  return { seen: false, reason: 'new article', key };
+  if (pending) {
+    return { seen: true, reason: 'currently pending processing', key, pendingKey };
+  }
+
+  return { seen: false, reason: 'new article', key, pendingKey };
 }
 
-async function markAsSeen(article, keyFromCheck) {
+async function markAsPending(article, keyFromCheck) {
   if (!CONFIG.dedupeEnabled) return;
-  const key = keyFromCheck || getSeenKey(article);
+  const key = keyFromCheck || getPendingKey(article);
+  await redis.setex(key, CONFIG.pendingTtlSeconds, '1');
+}
+
+async function markAsSeen(payload, keyFromCheck) {
+  if (!CONFIG.dedupeEnabled) return;
+  const key = keyFromCheck || getSeenKey(payload);
+  const pendingKey = getPendingKey(payload);
   await redis.setex(key, CONFIG.seenTtlSeconds, '1');
+  await redis.del(pendingKey);
+}
+
+async function backfillProcessedSignals() {
+  if (!CONFIG.dedupeEnabled) return;
+
+  try {
+    const recentMessages = await redis.xrevrange('signals:ready', '+', '-', 'COUNT', 200);
+    for (const [, fields] of recentMessages) {
+      const payload = {};
+      for (let i = 0; i < fields.length; i += 2) {
+        payload[fields[i]] = fields[i + 1];
+      }
+      if (payload.source_url || payload.source_headline) {
+        await markAsSeen(payload);
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to backfill processed signals cache: ${error.message}`);
+  }
+}
+
+async function trackProcessedSignals(trackerRedis) {
+  let lastId = '$';
+
+  while (true) {
+    try {
+      const result = await trackerRedis.xread('BLOCK', 15000, 'STREAMS', 'signals:ready', lastId);
+      if (!result) continue;
+
+      for (const [, messages] of result) {
+        for (const [id, fields] of messages) {
+          lastId = id;
+          const payload = {};
+          for (let i = 0; i < fields.length; i += 2) {
+            payload[fields[i]] = fields[i + 1];
+          }
+
+          if (payload.source_url || payload.source_headline) {
+            await markAsSeen(payload);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Processed-signal tracker error: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+}
+
+function buildRelevancePrompt(article) {
+  return [
+    'You are judging whether a news article is relevant to public markets.',
+    'Mark relevant=true only if the story could materially affect stocks, ETFs, sectors, commodities, rates, macro policy, or public-company valuations within the next few days or weeks.',
+    'Mark relevant=false only if the story is mostly local, human-interest, entertainment, sports, lifestyle, or otherwise unlikely to matter for public markets.',
+    'Return a single JSON object with keys relevant (boolean), reason (short string), and confidence (0-100 integer).',
+    'Do not include markdown, code fences, or extra commentary.',
+    '',
+    `Title: ${article.title || ''}`,
+    `Description: ${article.description || ''}`,
+    `Source: ${article.source || ''}`,
+  ].join('\n');
+}
+
+async function aiJudgeRelevance(article) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not set');
+  }
+
+  const prompt = buildRelevancePrompt(article);
+  const result = await geminiModel.generateContent(prompt);
+  const text = (result?.response?.text?.() || result?.response?.text || '').trim();
+
+  const jsonStart = text.indexOf('{');
+  const jsonEnd = text.lastIndexOf('}');
+  const candidate = jsonStart !== -1 && jsonEnd !== -1 ? text.slice(jsonStart, jsonEnd + 1) : text;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch (error) {
+    throw new Error(`AI relevance judge returned invalid JSON: ${candidate.slice(0, 200)}`);
+  }
+
+  const relevant = Boolean(parsed.relevant);
+  const reason = String(parsed.reason || (relevant ? 'AI judged article as market-relevant' : 'AI judged article as not market-relevant')).trim();
+  const confidence = Math.max(0, Math.min(100, Number.parseInt(parsed.confidence ?? '50', 10) || 50));
+
+  return { relevant, reason, confidence };
 }
 
 function levenshteinDistance(a, b) {
@@ -151,47 +263,23 @@ async function fetchNews() {
 
 
 // Determine whether an article is market-relevant.
-// Returns { relevant: boolean, reason: string }
+// Returns { relevant: boolean, reason: string, confidence: number }
 async function isMarketRelevant(article) {
-  const text = `${article.title || ''} ${article.description || ''} ${article.source || ''}`.toLowerCase();
+  try {
+    return await aiJudgeRelevance(article);
+  } catch (error) {
+    console.warn(`AI relevance judge failed, using conservative fallback: ${error.message}`);
 
-  // Reject keywords (local/sports/entertainment/weather/crime/human interest)
-  const rejectKeywords = [
-    'local', 'community', 'high school', 'county', 'town', 'municipal',
-    'sports', 'match', 'score', 'game', 'season', 'player', 'coach',
-    'entertainment', 'movie', 'film', 'celebrity', 'music', 'concert',
-    'weather', 'storm', 'flooding', 'hurricane', 'tornado',
-    'crime', 'arrest', 'murder', 'shooting', 'robbery',
-    'human interest', 'profile', 'lifestyle', 'opinion', 'column',
-  ];
+    const text = `${article.title || ''} ${article.description || ''} ${article.source || ''}`.toLowerCase();
+    const hasCompanyName = /\b(meta|alphabet|google|microsoft|apple|amazon|tesla|nvidia|meta\b|microsoft\b|openai|boeing|walmart|costco|target|intel|amd|uber|lyft|netflix|bank of america|jpmorgan|goldman sachs|blackrock)\b/i.test(text);
+    const hasMarketContext = /\b(earnings|revenue|profit|guidance|regulation|lawsuit|court|antitrust|merger|acquisition|bankruptcy|rate|inflation|cpi|gdp|tariff|sanction|contract|order|shipment|supply chain)\b/i.test(text);
 
-  for (const k of rejectKeywords) {
-    if (text.includes(k)) return { relevant: false, reason: `matched reject keyword '${k}'` };
+    if (hasCompanyName || hasMarketContext) {
+      return { relevant: true, reason: 'fallback matched market-moving company or event context', confidence: 45 };
+    }
+
+    return { relevant: false, reason: 'fallback found no clear market-moving context', confidence: 35 };
   }
-
-  // Approve keywords (macro, policy, regulatory, supply chain, commodity, earnings, central bank, trade)
-  const acceptKeywords = [
-    'regulation', 'regulatory', 'policy', 'sanction', 'tariff', 'trade policy',
-    'budget', 'fiscal', 'central bank', 'fed', 'reserve', 'interest rate', 'rate decision',
-    'gross domestic product', 'gdp', 'unemployment', 'inflation', 'cpi',
-    'supply chain', 'shipment', 'port', 'logistic', 'shortage', 'disruption',
-    'commodity', 'oil', 'gas', 'mining', 'separation', 'metals', 'copper', 'lithium', 'rare earth',
-    'earnings', 'quarter', 'q1', 'q2', 'q3', 'q4', 'revenue', 'profit', 'guidance', 'beat', 'miss',
-    'contract', 'procurement', 'award', 'signed', 'order', 'procure',
-    'defense', 'military', 'nato', 'intelligence', 'surveillance',
-    'merger', 'acquisition', 'ipo', 'bankruptcy', 'restructuring',
-  ];
-
-  for (const k of acceptKeywords) {
-    if (text.includes(k)) return { relevant: true, reason: `matched accept keyword '${k}'` };
-  }
-
-  // If none matched, do a heuristic: look for corporate tickers or company names (uppercase 2-5 letter tokens)
-  const tickerLike = (article.title || '').match(/\b[A-Z]{2,5}\b/g) || [];
-  if (tickerLike.length > 0) return { relevant: true, reason: 'found ticker-like tokens in title' };
-
-  // Default: not relevant to public markets
-  return { relevant: false, reason: 'no market-related keywords or ticker tokens found' };
 }
 
 async function dedupAndPublish(articles) {
@@ -205,35 +293,39 @@ async function dedupAndPublish(articles) {
       break;
     }
 
-    // Relevance pre-filter
+    let seenCheck = null;
+
+    // Cheap duplicate gate first: skip stories already processed or already in-flight.
     try {
-      const { relevant, reason } = await isMarketRelevant(article);
-      if (!relevant) {
-        console.log(`Skipping not market-relevant (${reason}): ${article.title}`);
-        continue;
-      }
-    } catch (err) {
-      console.warn('Relevance filter failed, allowing article through:', err && err.message);
-    }
-    try {
-      // Check recurring/seen articles across poll runs (Redis cache)
-      const seenCheck = await checkIfSeen(article);
+      seenCheck = await checkIfSeen(article);
       if (seenCheck.seen) {
         console.log(`Skipping duplicate (${seenCheck.reason}): ${article.title}`);
         continue;
       }
+    } catch (err) {
+      console.warn('Duplicate check failed, allowing article through:', err && err.message);
+    }
 
-      // Check semantic deduplication (same story, different reporter) within this poll
-      const isDuplicate = seenTitles.some((seenTitle) => isSimilarTitle(article.title, seenTitle));
-      if (isDuplicate) {
-        console.log(`Skipping duplicate (same story, different reporter): ${article.title}`);
+    // Semantic deduplication (same story, different reporter) within this poll.
+    const isDuplicate = seenTitles.some((seenTitle) => isSimilarTitle(article.title, seenTitle));
+    if (isDuplicate) {
+      console.log(`Skipping duplicate (same story, different reporter): ${article.title}`);
+      continue;
+    }
+
+    // AI relevance gate: only spend Gemini tokens on stories that are still candidates.
+    try {
+      const { relevant, reason, confidence } = await isMarketRelevant(article);
+      if (!relevant) {
+        console.log(`Skipping not market-relevant (${reason}): ${article.title}`);
+        await markAsSeen(article, seenCheck.key);
         continue;
       }
 
       seenTitles.push(article.title);
       await redis.xadd('news:raw', '*', 'article', JSON.stringify(article));
-      await markAsSeen(article, seenCheck.key);
-      console.log(`Published: ${article.title}`);
+      await markAsPending(article, seenCheck.pendingKey);
+      console.log(`Published: ${article.title} (relevance confidence ${confidence}%)`);
       published++;
     } catch (error) {
       console.error(`Failed to publish article "${article.title}": ${error.message}`);
@@ -245,6 +337,7 @@ async function dedupAndPublish(articles) {
 
 async function poll() {
   console.log('Starting news poller...');
+  const trackerRedis = new Redis(REDIS_URL);
 
   const pollOnce = async () => {
     try {
@@ -262,6 +355,10 @@ async function poll() {
       console.error(`Poller error: ${error.message}`);
     }
   };
+
+  await backfillProcessedSignals();
+
+  trackProcessedSignals(trackerRedis);
 
   // Run immediately on startup
   await pollOnce();

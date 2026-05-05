@@ -28,6 +28,41 @@ def load_environment() -> None:
     load_dotenv(project_root / '.env')
 
 
+def ensure_signal_columns(conn_str: str) -> None:
+    """Add rich signal columns to older databases before the worker runs."""
+    statements = [
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS time_horizon VARCHAR(50)',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS root_cause TEXT',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_headline TEXT',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_name VARCHAR(255)',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS source_attribution TEXT',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS geography VARCHAR(255)',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS market_consensus_divergence TEXT',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS investment_thesis TEXT',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS first_order_effects JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS second_order_effects JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS positively_affected TEXT[]',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS negatively_affected TEXT[]',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS thesis_risks JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS catalyst_chain JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS relationship_graph JSONB',
+    ]
+
+    conn = None
+    cur = None
+    try:
+        conn = psycopg2.connect(conn_str)
+        cur = conn.cursor()
+        for statement in statements:
+            cur.execute(statement)
+        conn.commit()
+    finally:
+        if cur is not None:
+            cur.close()
+        if conn is not None:
+            conn.close()
+
+
 def simple_signal_extractor(title: str, description: str) -> dict:
     """Heuristic signal extractor for MVP.
 
@@ -250,6 +285,83 @@ def normalize_confidence(parsed: dict, verified_tickers, source_attribution: str
     return max(0, min(100, confidence))
 
 
+def build_relationship_graph(signal: dict) -> dict:
+    """Build a fallback graph that gives the UI multiple branch groups."""
+
+    def normalize_items(items, default_kind: str, direction: str, relationship: str):
+        normalized = []
+        for index, item in enumerate(items or []):
+            if isinstance(item, dict):
+                label = str(
+                    item.get('label')
+                    or item.get('ticker')
+                    or item.get('symbol')
+                    or item.get('name')
+                    or item.get('title')
+                    or item.get('reason')
+                    or ''
+                ).strip()
+                children = item.get('children') or []
+                if not label:
+                    continue
+                normalized.append({
+                    'id': str(item.get('id') or f'{relationship.lower().replace(" ", "-")}-{index}'),
+                    'label': label,
+                    'ticker': str(item.get('ticker') or item.get('symbol') or '').upper() or None,
+                    'kind': str(item.get('kind') or item.get('type') or default_kind),
+                    'direction': str(item.get('direction') or direction),
+                    'conviction': str(item.get('conviction') or item.get('weight') or 'medium'),
+                    'relationship': str(item.get('relationship') or relationship),
+                    'why_it_matters': str(item.get('why_it_matters') or item.get('reason') or item.get('impact') or ''),
+                    'children': normalize_items(children if isinstance(children, list) else [], 'concept', direction, f'{label} follow-through'),
+                })
+            else:
+                label = str(item).strip()
+                if not label:
+                    continue
+                normalized.append({
+                    'id': f'{relationship.lower().replace(" ", "-")}-{index}',
+                    'label': label,
+                    'ticker': label.upper() if len(label) <= 5 and label.isalpha() else None,
+                    'kind': default_kind,
+                    'direction': direction,
+                    'conviction': 'medium',
+                    'relationship': relationship,
+                    'why_it_matters': '',
+                    'children': [],
+                })
+        return normalized
+
+    branches = []
+
+    def add_branch(label: str, items, default_kind: str, direction: str):
+        nodes = normalize_items(items, default_kind, direction, label)
+        if nodes:
+            branches.append({
+                'label': label,
+                'tone': direction,
+                'nodes': nodes,
+            })
+
+    add_branch('Primary tickers', signal.get('tickers', []), 'ticker', 'neutral')
+    add_branch('Direct effects', signal.get('first_order_effects', []), 'effect', 'neutral')
+    add_branch('Secondary effects', signal.get('second_order_effects', []), 'effect', 'neutral')
+    add_branch('Beneficiaries', signal.get('positively_affected', []), 'ticker', 'positive')
+    add_branch('Headwinds', signal.get('negatively_affected', []), 'ticker', 'negative')
+    add_branch('Invalidators', signal.get('thesis_risks', []), 'risk', 'neutral')
+
+    divergence = str(signal.get('market_consensus_divergence', '')).strip()
+    geography = str(signal.get('geography', '')).strip()
+    source_attribution = str(signal.get('source_attribution', '')).strip()
+    context_nodes = [value for value in [divergence, geography, source_attribution] if value]
+    add_branch('Context', context_nodes, 'context', 'neutral')
+
+    return {
+        'root': str(signal.get('root_cause') or 'News Event Detected').strip(),
+        'branches': branches,
+    }
+
+
 def generate_signal_with_gemini(article: dict) -> dict:
     """Generate a structured signal using the official google-genai SDK."""
     api_key = os.getenv('GEMINI_API_KEY')
@@ -278,6 +390,29 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "  \"negatively_affected\": [\"ticker or asset names that are hurt\"],\n"
             "  \"source_attribution\": \"best guess of original source: filing/press release/central bank/etc\",\n"
             "  \"confidence_basis\": [\"factors used to assign confidence\"],\n"
+            "  \"relationship_graph\": {\n"
+            "    \"root\": \"short causal summary of the event\",\n"
+            "    \"branches\": [\n"
+            "      {\n"
+            "        \"label\": \"Primary tickers\",\n"
+            "        \"tone\": \"positive|negative|neutral\",\n"
+            "        \"nodes\": [\n"
+            "          {\n"
+            "            \"label\": \"Ticker or company name\",\n"
+            "            \"ticker\": \"TICKER\",\n"
+            "            \"kind\": \"ticker|sector|supplier|customer|risk|theme\",\n"
+            "            \"direction\": \"positive|negative|neutral\",\n"
+            "            \"conviction\": \"high|medium|low\",\n"
+            "            \"relationship\": \"why this node is connected to the root cause\",\n"
+            "            \"why_it_matters\": \"1 short sentence with the market link\",\n"
+            "            \"children\": [\n"
+            "              {\"label\": \"Optional downstream or peer node\", \"ticker\": \"\", \"kind\": \"theme\", \"direction\": \"neutral\", \"conviction\": \"low\", \"relationship\": \"secondary read-through\", \"why_it_matters\": \"\", \"children\": []}\n"
+            "            ]\n"
+            "          }\n"
+            "        ]\n"
+            "      }\n"
+            "    ]\n"
+            "  },\n"
             "  \"catalyst_chain\": [\n"
             "    \"Step 1: The immediate factual change\",\n"
             "    \"Step 2: The direct financial/operational impact on named entities\",\n"
@@ -306,6 +441,14 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "- Avoid broad index ETFs like QQQ or SPY unless the signal is explicitly macro.\n"
             "- Ensure all tickers are real NYSE/NASDAQ symbols. Do not hallucinate.\n"
             "- When geography is inferable, weight tickers to companies exposed to that region.\n\n"
+
+            "## RELATIONSHIP GRAPH\n"
+            "- Populate relationship_graph so the UI can render a branching tree, not just a flat list.\n"
+            "- Include at least 3 branches whenever possible: primary tickers, direct effects, and either beneficiaries or headwinds.\n"
+            "- Each branch should contain 2-4 nodes when the article supports that breadth.\n"
+            "- Prefer explicit market relationships: supplier, customer, competitor, substitute, hedge, downstream beneficiary, downstream loser.\n"
+            "- Give each node a short why_it_matters sentence so the UI can show connection strength.\n"
+            "- Use nested children for second-order read-throughs or peers that emerge from the first branch.\n\n"
 
             "## DIRECTION & IMPACT\n"
             "- Do NOT rely on directional words in the headline. "
@@ -433,6 +576,17 @@ def generate_signal_with_gemini(article: dict) -> dict:
     parsed['geography'] = str(parsed.get('geography', '')).strip() or 'unspecified'
     parsed['source_attribution'] = str(parsed.get('source_attribution', '')).strip()
     parsed['confidence_basis'] = [str(x) for x in parsed.get('confidence_basis', []) if str(x).strip()]
+    relationship_graph = parsed.get('relationship_graph', {})
+    if isinstance(relationship_graph, str):
+        try:
+            relationship_graph = json.loads(relationship_graph)
+        except Exception:
+            relationship_graph = {}
+    if not isinstance(relationship_graph, dict):
+        relationship_graph = {}
+    if not relationship_graph:
+        relationship_graph = build_relationship_graph(parsed)
+    parsed['relationship_graph'] = relationship_graph
     return parsed
 
 
@@ -484,13 +638,15 @@ def save_signal(conn_str: str, signal: dict) -> str:
                 time_horizon, root_cause, source_headline, source_name,
                 source_attribution, geography, market_consensus_divergence,
                 investment_thesis, first_order_effects, second_order_effects,
-                positively_affected, negatively_affected, thesis_risks, catalyst_chain
+                positively_affected, negatively_affected, thesis_risks, catalyst_chain,
+                relationship_graph
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
-                %s, %s, %s, %s
+                %s, %s, %s, %s,
+                %s
             ) RETURNING id
         """
         values = (
@@ -516,6 +672,7 @@ def save_signal(conn_str: str, signal: dict) -> str:
             negatively_affected or None,
             Json(signal.get('thesis_risks') or []),
             Json(signal.get('catalyst_chain') or []),
+            Json(signal.get('relationship_graph') or {}),
         )
         cur.execute(query, values)
         signal_id = cur.fetchone()[0]
@@ -544,6 +701,7 @@ def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
             'investment_thesis': signal.get('investment_thesis', ''),
             'thesis_risks': json.dumps(signal.get('thesis_risks', [])),
             'catalyst_chain': json.dumps(signal.get('catalyst_chain', [])),
+            'relationship_graph': json.dumps(signal.get('relationship_graph', {})),
             'geography': signal.get('geography', ''),
             'source_attribution': str(signal.get('source_attribution', '')),
             'source_name': str(signal.get('source_name', 'unknown')),
@@ -568,6 +726,12 @@ def main() -> int:
         return 1
 
     r = redis.from_url(REDIS_URL)
+
+    try:
+        ensure_signal_columns(DATABASE_URL)
+    except Exception as e:
+        print(f'Failed to ensure signal columns: {e}')
+        return 1
 
     STREAM_KEY = 'news:raw'
     GROUP = 'signals_workers'

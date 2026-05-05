@@ -20,6 +20,146 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function parseMaybeJson(value, fallback) {
+    if (value == null) return fallback;
+    if (Array.isArray(value) || typeof value === 'object') return value;
+    if (typeof value !== 'string') return fallback;
+    try {
+        return JSON.parse(value);
+    } catch (e) {
+        return fallback;
+    }
+}
+
+function normalizeTickerList(value) {
+    const list = parseMaybeJson(value, value);
+    if (!Array.isArray(list)) return [];
+
+    return list
+        .map((item) => {
+            if (typeof item === 'string') return item.trim().toUpperCase();
+            if (item && typeof item === 'object') {
+                return String(item.ticker || item.symbol || item.label || item.name || '').trim().toUpperCase();
+            }
+            return '';
+        })
+        .filter(Boolean);
+}
+
+function normalizeTextList(value) {
+    const list = parseMaybeJson(value, value);
+    if (!Array.isArray(list)) return [];
+
+    return list
+        .map((item) => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object') {
+                return String(item.label || item.ticker || item.symbol || item.name || item.title || item.reason || item.why_it_matters || '').trim();
+            }
+            return '';
+        })
+        .filter(Boolean);
+}
+
+function normalizeGraphNode(node, fallbackRelationship = 'related exposure', fallbackTone = 'neutral') {
+    if (!node) return null;
+
+    if (typeof node === 'string') {
+        const label = node.trim();
+        if (!label) return null;
+        return {
+            id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            label,
+            ticker: label.length <= 5 ? label.toUpperCase() : '',
+            kind: 'theme',
+            direction: fallbackTone,
+            conviction: 'medium',
+            relationship: fallbackRelationship,
+            why_it_matters: '',
+            children: [],
+        };
+    }
+
+    if (typeof node !== 'object') return null;
+
+    const label = String(node.label || node.ticker || node.symbol || node.name || node.title || node.reason || node.why_it_matters || '').trim();
+    if (!label) return null;
+
+    return {
+        id: String(node.id || label.toLowerCase().replace(/[^a-z0-9]+/g, '-')),
+        label,
+        ticker: String(node.ticker || node.symbol || '').trim().toUpperCase(),
+        kind: String(node.kind || node.type || (node.ticker || node.symbol ? 'ticker' : 'theme')),
+        direction: String(node.direction || fallbackTone || 'neutral').toLowerCase(),
+        conviction: String(node.conviction || node.weight || 'medium').toLowerCase(),
+        relationship: String(node.relationship || node.link || fallbackRelationship || '').trim(),
+        why_it_matters: String(node.why_it_matters || node.reason || node.impact || '').trim(),
+        children: Array.isArray(node.children)
+            ? node.children.map((child) => normalizeGraphNode(child, `${label} follow-through`, fallbackTone)).filter(Boolean)
+            : [],
+    };
+}
+
+function toneToColor(tone) {
+    if (tone === 'positive' || tone === 'bullish') return 'secondary';
+    if (tone === 'negative' || tone === 'bearish') return 'error';
+    return 'primary-fixed-dim';
+}
+
+function buildFallbackGraph(signal) {
+    const branches = [];
+    const pushBranch = (label, items, tone) => {
+        const nodes = normalizeTextList(items).map((item) => normalizeGraphNode(item, label, tone)).filter(Boolean);
+        if (nodes.length > 0) {
+            branches.push({
+                label,
+                tone,
+                nodes,
+            });
+        }
+    };
+
+    pushBranch('Primary tickers', signal.tickers || [], signal.direction === 'BULLISH' ? 'positive' : signal.direction === 'BEARISH' ? 'negative' : 'neutral');
+    pushBranch('Direct effects', signal.first_order_effects || [], 'neutral');
+    pushBranch('Secondary effects', signal.second_order_effects || [], 'neutral');
+    pushBranch('Beneficiaries', signal.positively_affected || [], 'positive');
+    pushBranch('Headwinds', signal.negatively_affected || [], 'negative');
+    pushBranch('Invalidators', signal.thesis_risks || [], 'neutral');
+
+    const contextItems = [signal.market_consensus_divergence, signal.geography, signal.source_attribution].filter(Boolean);
+    pushBranch('Context', contextItems, 'neutral');
+
+    return {
+        root: signal.root_cause || 'News Event Detected',
+        branches,
+    };
+}
+
+function buildTopologyModel(signal) {
+    const graph = parseMaybeJson(signal.relationship_graph, null);
+    if (graph && typeof graph === 'object' && Array.isArray(graph.branches)) {
+        return {
+            root: String(graph.root || signal.root_cause || 'News Event Detected').trim(),
+            branches: graph.branches
+                .map((branch) => {
+                    if (!branch || typeof branch !== 'object') return null;
+                    const nodes = Array.isArray(branch.nodes)
+                        ? branch.nodes.map((node) => normalizeGraphNode(node, branch.label || 'related exposure', branch.tone || 'neutral')).filter(Boolean)
+                        : [];
+                    if (!nodes.length) return null;
+                    return {
+                        label: String(branch.label || 'Relationship branch').trim(),
+                        tone: String(branch.tone || 'neutral').toLowerCase(),
+                        nodes,
+                    };
+                })
+                .filter(Boolean),
+        };
+    }
+
+    return buildFallbackGraph(signal);
+}
+
 function timeAgo(dateString) {
     const date = new Date(dateString);
     const seconds = Math.floor((new Date() - date) / 1000);
@@ -38,8 +178,9 @@ function timeAgo(dateString) {
 }
 
 function formatTicker(tickers) {
-    if (!tickers || tickers.length === 0) return 'N/A';
-    return escapeHtml(tickers.join(' · '));
+    const symbols = normalizeTickerList(tickers);
+    if (symbols.length === 0) return 'N/A';
+    return escapeHtml(symbols.join(' · '));
 }
 
 // Templates
@@ -77,7 +218,7 @@ function renderAnalysisNode(signal) {
     const icon = isBull ? 'trending_up' : isBear ? 'trending_down' : 'horizontal_rule';
     
     // Process JSONB arrays safely
-    const catalystChain = typeof signal.catalyst_chain === 'string' ? JSON.parse(signal.catalyst_chain || '[]') : (signal.catalyst_chain || []);
+    const catalystChain = normalizeTextList(signal.catalyst_chain);
     
     let catalystHtml = '';
     if (catalystChain.length > 0) {
@@ -110,6 +251,16 @@ function renderAnalysisNode(signal) {
             <div class="font-label-caps text-label-caps text-${color} tracking-widest mt-1">${signal.direction}</div>
         </div>
 
+        <!-- News Details -->
+        <div class="flex flex-col gap-2">
+            <div class="font-label-caps text-label-caps text-on-surface-variant">CATALYST NEWS</div>
+            <div class="bg-surface-container p-3 border border-outline-variant rounded-sm flex flex-col gap-2">
+                ${signal.source_name ? `<div class="text-xs font-label-caps text-primary">${escapeHtml(signal.source_name)}</div>` : ''}
+                <div class="text-sm font-headline-sm text-on-surface">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
+                ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-primary hover:underline flex items-center gap-1 mt-1"><span class="material-symbols-outlined text-[14px]">open_in_new</span> View Source Article</a>` : ''}
+            </div>
+        </div>
+
         <!-- Metrics Grid -->
         <div class="grid grid-cols-2 gap-panel-gap">
             <div class="bg-surface-container-low p-2 border border-outline-variant rounded-sm">
@@ -131,67 +282,131 @@ function renderAnalysisNode(signal) {
         </div>
 
         <!-- AI Reasoning -->
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2 mb-4">
             <div class="font-label-caps text-label-caps text-on-surface-variant">AI REASONING</div>
             <p class="font-body-compact text-body-compact text-on-surface text-xs leading-relaxed text-justify opacity-80">
                 ${escapeHtml(signal.reasoning || 'No reasoning provided.')}
             </p>
         </div>
-        
-        <!-- Investment Thesis -->
-        ${signal.investment_thesis ? `
-        <div class="flex flex-col gap-2">
-            <div class="font-label-caps text-label-caps text-on-surface-variant">INVESTMENT THESIS</div>
-            <p class="font-body-compact text-body-compact text-primary text-xs leading-relaxed text-justify">
-                ${escapeHtml(signal.investment_thesis)}
-            </p>
-        </div>` : ''}
-
-        <button onclick="executeHedge(this)" class="w-full mt-auto bg-primary/10 border border-primary text-primary font-label-caps text-label-caps py-3 rounded-sm hover:bg-primary/20 transition-colors">
-            EXECUTE HEDGE SCRIPT
-        </button>
     </div>
     `;
 }
 
+function getStyleColor(tone) {
+    const t = String(tone).toLowerCase();
+    if (t.includes('bull') || t.includes('positive') || t.includes('beneficiary')) return '#a3ffb4'; // Vibrant light green
+    if (t.includes('bear') || t.includes('negative') || t.includes('hit')) return '#ff7a7a'; // Vibrant light red
+    return '#8d99ae'; // Cool grey
+}
+
 function renderCenterGraph(signal) {
     if (!signal) {
-        centerPanel.innerHTML = `
-            <div class="flex-1 flex items-center justify-center text-on-surface-variant font-body-compact opacity-50">
-                Select a signal to view catalyst chain graph
-            </div>
-        `;
+        centerPanel.innerHTML = `<div class="flex-1 flex items-center justify-center text-on-surface-variant font-body-compact opacity-50">Select a signal to view catalyst chain graph</div>`;
         return;
     }
-    
-    const isBull = signal.direction === 'BULLISH';
-    const color = isBull ? 'secondary' : signal.direction === 'BEARISH' ? 'error' : 'primary-fixed-dim';
-    
-    // In a real app, this would be a D3 or Canvas node graph. We'll simulate it with styled HTML.
-    centerPanel.innerHTML = `
-        <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+
+    const topology = buildTopologyModel(signal);
+
+    centerPanel.innerHTML = `<div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center z-10 relative">
             <h2 class="font-headline-sm text-headline-sm text-on-surface">Catalyst Topology</h2>
+            <button id="reheat-btn" class="text-on-surface-variant p-1 rounded hover:bg-surface-bright transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>
+            </button>
         </div>
-        <div class="flex-1 overflow-hidden p-8 flex items-center justify-center bg-surface-dim relative">
-            <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at center, #ffffff 1px, transparent 1px); background-size: 24px 24px;"></div>
-            
-            <div class="flex flex-col items-center gap-6 relative z-10 w-full max-w-md">
-                <div class="w-full bg-surface-container border border-outline-variant p-4 rounded-sm shadow-lg text-center relative">
-                    <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">ROOT CAUSE</div>
-                    <div class="text-on-surface text-sm">${escapeHtml(signal.root_cause || 'News Event Detected')}</div>
-                    <div class="absolute -bottom-6 left-1/2 w-0.5 h-6 bg-outline-variant"></div>
-                    <div class="absolute -bottom-6 left-1/2 w-3 h-3 rounded-full bg-outline-variant transform -translate-x-1.5 translate-y-4"></div>
-                </div>
-                
-                <div class="w-full bg-surface border border-${color} border-l-4 p-4 rounded-sm shadow-lg shadow-${color}/10 mt-4 text-center">
-                    <div class="font-label-caps text-label-caps text-${color} mb-1">MARKET IMPACT</div>
-                    <div class="font-display-ticker text-${color} text-xl">${formatTicker(signal.tickers)}</div>
-                    <div class="text-on-surface-variant text-xs mt-2">${escapeHtml(signal.market_consensus_divergence || '')}</div>
-                </div>
+        <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-[#1e1e1e]" tabindex="0">
+            <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm" style="top: 16px; left: 16px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; min-width: 250px; color: #fff;"></div>
+            <div id="d3-caption" class="absolute bottom-4 left-4 right-4 bg-black/60 text-white/90 p-4 rounded-lg border border-white/10 text-sm font-sans backdrop-blur-sm z-40 pointer-events-none">
+                <strong style="color: #4a90e2;">ROOT CAUSE:</strong> ${escapeHtml(topology.root)}
             </div>
-        </div>
-    `;
+        </div>`;
+
+    setTimeout(() => { initD3Graph(signal, topology); }, 0);
 }
+
+function initD3Graph(signal, topology) {
+    const container = document.getElementById('d3-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const nodes = [];
+    const links = [];
+
+    const rootId = 'root';
+    nodes.push({ id: rootId, label: 'ROOT CAUSE', group: 'root', radius: 18, color: '#4a90e2', detail: signal.market_consensus_divergence || 'Initial Catalyst', conviction: 'high' });
+
+    topology.branches.forEach((branch) => {
+        if (branch.nodes) {
+            branch.nodes.forEach((leaf) => {
+                const leafId = 'leaf_' + Math.random().toString(36).substr(2, 9);
+                const leafColor = getStyleColor(leaf.direction || branch.tone);
+                const impact = parseFloat(leaf.impact_score) || 5;
+
+                nodes.push({
+                    id: leafId, label: leaf.company_name || leaf.ticker || leaf.focus || 'Entity', ticker: leaf.ticker,
+                    group: 'leaf', radius: 8 + (impact), color: leafColor, detail: leaf.why_it_matters || leaf.focus || 'Exposed entity',
+                    directionInfo: (leaf.direction || branch.tone).toUpperCase(), conviction: leaf.conviction || 'medium'
+                });
+
+                links.push({ source: rootId, target: leafId, value: impact, color: leafColor, reason: branch.label || 'Impact Transmission' });
+            });
+        }
+    });
+
+    d3.select("#d3-container").select("svg").remove();
+
+    const zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform));
+
+    const svg = d3.select("#d3-container").append("svg").attr("width", width).attr("height", height).call(zoom).on("dblclick.zoom", () => {
+        svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(width/2, height/2).scale(1).translate(-width/2, -height/2));
+    });
+
+    svg.on("click", () => { pinnedNode = null; hideTooltip(); resetFocus(); });
+
+    const defs = svg.append("defs");
+    ['#4a90e2', '#a3ffb4', '#ff7a7a', '#8d99ae'].forEach(color => {
+         defs.append("marker").attr("id", "arrow-" + color.replace('#', '')).attr("viewBox", "0 -5 10 10").attr("refX", 20).attr("refY", 0).attr("markerWidth", 5).attr("markerHeight", 5).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#666").attr("opacity", 0.8);
+    });
+
+    const g = svg.append("g");
+
+    const simulation = d3.forceSimulation(nodes).force("link", d3.forceLink(links).id(d => d.id).distance(150)).force("charge", d3.forceManyBody().strength(-800)).force("center", d3.forceCenter(width / 2, height / 2)).force("collide", d3.forceCollide().radius(d => d.radius + 30));
+
+    const link = g.append("g").attr("class", "links").selectAll("line").data(links).enter().append("line").attr("stroke", "#444").attr("stroke-width", 1.5).attr("opacity", 0.8).attr("marker-end", d => "url(#arrow-" + d.color.replace('#', '') + ")");
+
+    const node = g.append("g").attr("class", "nodes").selectAll("g").data(nodes).enter().append("g").call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+    const circles = node.append("circle").attr("r", d => d.radius).attr("fill", d => d.color);
+
+    const texts = node.append("text").text(d => d.ticker || d.label).attr("dx", d => d.radius + 6).attr("dy", 4).attr("fill", "#bbb").attr("font-size", "11px").attr("font-family", "sans-serif").style("pointer-events", "none");
+
+    const tooltip = d3.select("#d3-tooltip");
+    let pinnedNode = null;
+
+    function focusNode(d) {
+        const connectedNodes = new Set(); connectedNodes.add(d.id); links.forEach(l => { if (l.source.id === d.id) connectedNodes.add(l.target.id); if (l.target.id === d.id) connectedNodes.add(l.source.id); });
+        node.transition().duration(200).style("opacity", o => connectedNodes.has(o.id) ? 1 : 0.2);
+        link.transition().duration(200).style("opacity", o => (o.source.id === d.id || o.target.id === d.id) ? 0.8 : 0.1).attr("stroke", o => (o.source.id === d.id || o.target.id === d.id) ? "#888" : "#222");
+    }
+    function resetFocus() { node.transition().duration(200).style("opacity", 1); link.transition().duration(200).style("opacity", 0.8).attr("stroke", "#444"); }
+
+    node.on("mouseover", (event, d) => { if (pinnedNode && pinnedNode.id !== d.id) return; focusNode(d); }).on("mouseout", () => { if (pinnedNode) return; resetFocus(); }).on("click", (event, d) => { event.stopPropagation(); pinnedNode = d; focusNode(d); tooltip.transition().duration(200).style("opacity", 1); tooltip.html(`${d.ticker ? `<div style="font-weight:bold; font-size:16px;">${escapeHtml(d.ticker)}</div>` : ''}<div style="margin-bottom:8px;">${escapeHtml(d.label)}</div>${d.directionInfo ? `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 10px; color:${d.color}">${d.directionInfo} IMPACT</span>` : ''}<div style="margin-top:8px; font-size:12px; color:#ccc;">${escapeHtml(d.detail)}</div>`); });
+
+    function hideTooltip() { tooltip.transition().duration(200).style("opacity", 0); }
+    document.getElementById('reheat-btn').addEventListener('click', (e) => { e.stopPropagation(); simulation.alpha(1).restart(); });
+    
+    simulation.on("tick", () => { 
+        link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+        node.attr("transform", d => `translate(${d.x},${d.y})`); 
+    });
+    
+    function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+    function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+    function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+    const resizeObserver = new ResizeObserver(entries => { for (let entry of entries) { const newW = entry.contentRect.width; const newH = entry.contentRect.height; svg.attr("width", newW).attr("height", newH); simulation.force("center", d3.forceCenter(newW / 2, newH / 2)); simulation.alpha(0.3).restart(); } }); resizeObserver.observe(container);
+}
+
+function truncate(str, max) { if (!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
+
 
 // Logic Functions
 async function fetchSignals() {
