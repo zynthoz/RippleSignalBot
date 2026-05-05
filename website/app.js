@@ -1,11 +1,13 @@
 // MarketPulse AI - Web Dashboard App
 
 let signals = [];
+let displayedSignals = [];
+let unseenSignalsCount = 0;
 let activeFilter = 'ALL';
-let latencyDisplay;
+let searchQuery = '';
+let activeSignalId = null;
 let signalFeedContainer;
 let analysisNodeContainer;
-let footerStats;
 let centerPanel;
 let newSignalIndicator;
 
@@ -343,8 +345,11 @@ function renderSignalCard(signal) {
     const age = timeAgo(signal.created_at);
     const reasoningExcerpt = escapeHtml((signal.source_headline || signal.reasoning || '').substring(0, 40)) + '...';
 
+    const isActive = signal.id === activeSignalId;
+    const activeClasses = isActive ? 'bg-surface-variant ring-1 ring-primary' : 'bg-surface';
+
     return `
-    <div class="bg-surface border border-outline-variant border-l-4 border-l-${color} p-2 cursor-pointer hover:bg-surface-variant transition-colors group" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
+    <div class="${activeClasses} border border-outline-variant border-l-4 border-l-${color} p-2 cursor-pointer hover:bg-surface-variant transition-colors group" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
         <div class="flex justify-between items-start mb-2">
             <div class="flex items-center gap-1 text-${color} font-label-caps text-label-caps">
                 <span class="material-symbols-outlined text-[12px]">${icon}</span> ${label}
@@ -623,7 +628,7 @@ function initD3Graph(signal, topology) {
     const rootId = 'root';
     nodes.push({
         id: rootId, label: 'ROOT CAUSE', group: 'root', layer: 0,
-        radius: 20, color: '#4a90e2', shape: 'circle',
+        radius: 28, color: '#4a90e2', shape: 'circle',
         detail: signal.market_consensus_divergence || topology.root || 'Initial Catalyst',
         directionInfo: '', conviction: 'high'
     });
@@ -636,7 +641,7 @@ function initD3Graph(signal, topology) {
         foIds.push(id);
         nodes.push({
             id, label: shortLabel(txt), group: 'first_order', layer: 1,
-            radius: 10, color: '#ffcf56', shape: 'diamond',
+            radius: 14, color: '#ffcf56', shape: 'diamond',
             detail: txt, directionInfo: 'DIRECT EFFECT', conviction: 'high'
         });
         links.push({ source: rootId, target: id, value: 7, color: '#ffcf56', reason: 'Direct impact', dashed: false });
@@ -650,7 +655,7 @@ function initD3Graph(signal, topology) {
         soIds.push(id);
         nodes.push({
             id, label: shortLabel(txt), group: 'second_order', layer: 2,
-            radius: 8, color: '#6cb4d9', shape: 'diamond',
+            radius: 10, color: '#6cb4d9', shape: 'diamond',
             detail: txt, directionInfo: 'RIPPLE EFFECT', conviction: 'medium'
         });
         const parentId = foIds.length > 0 ? foIds[idx % foIds.length] : rootId;
@@ -671,7 +676,7 @@ function initD3Graph(signal, topology) {
 
         nodes.push({
             id, label: sym, ticker: sym, companyName: company, group: 'ticker', layer: 3,
-            radius: 10, color: col, shape: 'circle',
+            radius: 20, color: col, shape: 'circle',
             detail: why, directionInfo: impact.toUpperCase() + ' IMPACT', conviction: conv
         });
 
@@ -701,15 +706,26 @@ function initD3Graph(signal, topology) {
         links.push({ source: rootId, target: id, value: 2, color: '#ff6b6b', reason: 'Thesis risk', dashed: true });
     });
 
+    // Initialize all nodes near the center with random jitter to prevent them from flying in from (0,0)
+    // Jitter ensures dx/dy are never precisely 0 in the custom force layer.
+    nodes.forEach(n => { n.x = cx + Math.random() * 2 - 1; n.y = cy + Math.random() * 2 - 1; });
+
     // ========== D3 Rendering ==========
     d3.select("#d3-container").select("svg").remove();
 
     const zoom = d3.zoom().scaleExtent([0.2, 4]).on("zoom", (event) => g.attr("transform", event.transform));
+    // Start slightly zoomed out (0.85) to ensure nodes aren't cut off at the edges
+    const initialTransform = d3.zoomIdentity.translate(cx, cy).scale(0.85).translate(-cx, -cy);
 
     const svg = d3.select("#d3-container").append("svg")
-        .attr("width", width).attr("height", height).call(zoom)
+        .attr("width", width).attr("height", height).call(zoom);
+
+    const g = svg.append("g");
+
+    // Now that `g` exists, apply the initial zoom transform to center the view
+    svg.call(zoom.transform, initialTransform)
         .on("dblclick.zoom", () => {
-            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(cx, cy).scale(1).translate(-cx, -cy));
+            svg.transition().duration(750).call(zoom.transform, initialTransform);
         });
 
     svg.on("click", () => { pinnedNode = null; hideTooltip(); resetFocus(); });
@@ -728,10 +744,8 @@ function initD3Graph(signal, topology) {
             .append("path").attr("d", "M0,-4L8,0L0,4").attr("fill", color).attr("opacity", 0.5);
     });
 
-    const g = svg.append("g");
-
     // Layer distance from center
-    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.18, 2: Math.min(width, height) * 0.32, 3: Math.min(width, height) * 0.46, risk: Math.min(width, height) * 0.28 };
+    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.16, 2: Math.min(width, height) * 0.28, 3: Math.min(width, height) * 0.40, risk: Math.min(width, height) * 0.24 };
 
     // Custom radial-layer force
     function forceLayer(strength) {
@@ -897,8 +911,7 @@ async function fetchSignals() {
         const res = await fetch('/api/signals?limit=50');
         if (res.ok) {
             signals = await res.json();
-            const latency = Math.round(performance.now() - startTime);
-            latencyDisplay.textContent = latency + 'ms';
+            displayedSignals = [...signals];
             renderSignalFeed();
             updateFilterCounts();
         }
@@ -908,22 +921,19 @@ async function fetchSignals() {
     }
 }
 
-async function fetchStats() {
-    try {
-        const res = await fetch('/api/stats');
-        if (res.ok) {
-            const stats = await res.json();
-            footerStats.textContent = `SYS_HEALTH: OPTIMAL | SIGNALS_TODAY: ${stats.signals_today || 0} | USERS: ${stats.subscribed_users || 0} | TOTAL_SIGNALS: ${stats.total_signals || 0}`;
-        }
-    } catch(e) {
-        console.error("Failed to fetch stats", e);
-    }
-}
 
 function renderSignalFeed() {
-    let filtered = signals;
+    let filtered = displayedSignals;
     if (activeFilter !== 'ALL') {
-        filtered = signals.filter(s => s.direction === activeFilter);
+        filtered = filtered.filter(s => s.direction === activeFilter);
+    }
+    
+    if (searchQuery) {
+        filtered = filtered.filter(s => {
+            const t = (s.tickers ? JSON.stringify(s.tickers) : '').toLowerCase();
+            const r = (s.reasoning || s.source_headline || '').toLowerCase();
+            return t.includes(searchQuery) || r.includes(searchQuery);
+        });
     }
     
     if (filtered.length === 0) {
@@ -962,10 +972,15 @@ function setFilter(filter) {
 }
 
 async function loadSignalDetails(id) {
+    activeSignalId = id;
     // Highlight active card
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-variant');
-        if (el.dataset.id === id) el.classList.add('bg-surface-variant');
+        el.classList.remove('bg-surface-variant', 'ring-1', 'ring-primary');
+        el.classList.add('bg-surface');
+        if (el.dataset.id === id) {
+            el.classList.remove('bg-surface');
+            el.classList.add('bg-surface-variant', 'ring-1', 'ring-primary');
+        }
     });
 
     try {
@@ -989,8 +1004,12 @@ function clearAnalysisNode() {
             Select a signal from the feed to view full causal analysis.
         </div>
     `;
+    activeSignalId = null;
     renderCenterGraph(null);
-    document.querySelectorAll('#signal-feed > div').forEach(el => el.classList.remove('bg-surface-variant'));
+    document.querySelectorAll('#signal-feed > div').forEach(el => {
+        el.classList.remove('bg-surface-variant', 'ring-1', 'ring-primary');
+        el.classList.add('bg-surface');
+    });
 }
 
 function executeHedge(btn) {
@@ -1014,11 +1033,12 @@ function setupSSE() {
             if (!signals.find(s => s.id === signal.id)) {
                 signals.unshift(signal); // Prepend to array
                 
-                // Flash green dot indicator
-                newSignalIndicator.classList.add('animate-pulse');
-                setTimeout(() => newSignalIndicator.classList.remove('animate-pulse'), 3000);
+                // Show pill instead of forcing scroll jump
+                unseenSignalsCount++;
+                const pill = document.getElementById('new-signal-pill');
+                document.getElementById('new-signal-count').textContent = unseenSignalsCount;
+                pill.classList.remove('hidden');
                 
-                renderSignalFeed();
                 updateFilterCounts();
             }
         } catch(err) {
@@ -1034,10 +1054,8 @@ function setupSSE() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    latencyDisplay = document.getElementById('latency-display');
     signalFeedContainer = document.getElementById('signal-feed');
     analysisNodeContainer = document.getElementById('analysis-node');
-    footerStats = document.getElementById('footer-stats');
     centerPanel = document.getElementById('center-panel');
     newSignalIndicator = document.getElementById('new-signal-indicator');
 
@@ -1045,13 +1063,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-BULL').addEventListener('click', () => setFilter('BULLISH'));
     document.getElementById('filter-BEAR').addEventListener('click', () => setFilter('BEARISH'));
 
+    document.getElementById('signal-search').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        renderSignalFeed();
+    });
+
+    document.getElementById('new-signal-pill').addEventListener('click', () => {
+        displayedSignals = [...signals];
+        unseenSignalsCount = 0;
+        document.getElementById('new-signal-pill').classList.add('hidden');
+        renderSignalFeed();
+        signalFeedContainer.scrollTop = 0;
+    });
+
     // Initial load
     clearAnalysisNode();
     fetchSignals();
-    fetchStats();
-    
-    // Polling fallback / periodic updates
-    setInterval(fetchStats, 30000); // Stats every 30s
     
     // Start SSE stream
     setupSSE();

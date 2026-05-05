@@ -473,6 +473,12 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "- Every positive impact ticker must appear in positively_affected.\n"
             "- Every negative impact ticker must appear in negatively_affected.\n\n"
 
+            "## BUSINESS MODEL NUANCE & CAUSALITY\n"
+            "- Pay extremely close attention to the difference between PRODUCERS and SERVICES/EQUIPMENT providers.\n"
+            "- Example: In a geopolitical conflict or supply disruption (e.g. Gulf conflict), oil producers (XOM, CVX, OXY) are BULLISH because reduced supply = higher commodity prices. However, oilfield service companies (SLB, HAL) are BEARISH because conflict freezes new capital expenditure, stops active drilling, and spikes insurance/logistics costs. They get paid to drill, not to sell oil.\n"
+            "- Example 2: Escalation in conflict often leads to defense procurement, making defense contractors (LMT, RTX) BULLISH.\n"
+            "- Always separate the commodity/product price effect from the operational/capex effect. Ensure your tickers reflect the exact business model's exposure.\n\n"
+
             "## CONFIDENCE CALIBRATION\n"
             "- 40-55: Speculation / unconfirmed rumor / RFP / expressed interest\n"
             "- 56-70: Approved budget / formal policy decision / stated intent\n"
