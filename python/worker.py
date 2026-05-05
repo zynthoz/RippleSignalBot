@@ -304,16 +304,22 @@ def build_relationship_graph(signal: dict) -> dict:
                 children = item.get('children') or []
                 if not label:
                     continue
+                # Derive per-item direction from 'impact' or 'direction' fields.
+                item_direction = str(
+                    item.get('direction')
+                    or item.get('impact')
+                    or direction
+                ).lower()
                 normalized.append({
                     'id': str(item.get('id') or f'{relationship.lower().replace(" ", "-")}-{index}'),
                     'label': label,
                     'ticker': str(item.get('ticker') or item.get('symbol') or '').upper() or None,
                     'kind': str(item.get('kind') or item.get('type') or default_kind),
-                    'direction': str(item.get('direction') or direction),
+                    'direction': item_direction,
                     'conviction': str(item.get('conviction') or item.get('weight') or 'medium'),
                     'relationship': str(item.get('relationship') or relationship),
                     'why_it_matters': str(item.get('why_it_matters') or item.get('reason') or item.get('impact') or ''),
-                    'children': normalize_items(children if isinstance(children, list) else [], 'concept', direction, f'{label} follow-through'),
+                    'children': normalize_items(children if isinstance(children, list) else [], 'concept', item_direction, f'{label} follow-through'),
                 })
             else:
                 label = str(item).strip()
@@ -343,7 +349,15 @@ def build_relationship_graph(signal: dict) -> dict:
                 'nodes': nodes,
             })
 
-    add_branch('Primary tickers', signal.get('tickers', []), 'ticker', 'neutral')
+    # Derive overall signal tone for primary tickers branch from the signal direction.
+    sig_direction = str(signal.get('direction', 'NEUTRAL')).upper()
+    primary_tone = (
+        'positive' if sig_direction == 'BULLISH'
+        else 'negative' if sig_direction == 'BEARISH'
+        else 'mixed' if sig_direction == 'MIXED'
+        else 'neutral'
+    )
+    add_branch('Primary tickers', signal.get('tickers', []), 'ticker', primary_tone)
     add_branch('Direct effects', signal.get('first_order_effects', []), 'effect', 'neutral')
     add_branch('Secondary effects', signal.get('second_order_effects', []), 'effect', 'neutral')
     add_branch('Beneficiaries', signal.get('positively_affected', []), 'ticker', 'positive')
