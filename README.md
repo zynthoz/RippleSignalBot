@@ -71,7 +71,7 @@ npm start
 Terminal 2: Python worker
 
 ```bash
-source .venv/bin/activate
+source venv/bin/activate
 python3 python/worker.py
 ```
 

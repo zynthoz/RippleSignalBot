@@ -364,31 +364,24 @@ function renderSignalCard(signal) {
     </div>`;
 }
 
-function renderTickerSignals(signal) {
+function renderInlineTickers(signal) {
     const tickers = parseMaybeJson(signal.tickers, []);
     if (!Array.isArray(tickers) || tickers.length === 0) return '';
+    
+    const positivelyAffected = new Set(normalizeTextList(signal.positively_affected).map(s => s.toUpperCase()));
+    const negativelyAffected = new Set(normalizeTextList(signal.negatively_affected).map(s => s.toUpperCase()));
 
-    const positivelyAffected = new Set(
-        normalizeTextList(signal.positively_affected).map(s => s.toUpperCase())
-    );
-    const negativelyAffected = new Set(
-        normalizeTextList(signal.negatively_affected).map(s => s.toUpperCase())
-    );
-
-    const tickerRows = tickers.map((t) => {
-        let sym, conviction, impact;
+    const pills = tickers.map(t => {
+        let sym, impact;
         if (typeof t === 'object' && t !== null) {
             sym = String(t.symbol || t.ticker || '').toUpperCase();
-            conviction = String(t.conviction || 'medium').toLowerCase();
             impact = String(t.impact || t.direction || '').toLowerCase();
         } else {
             sym = String(t).toUpperCase();
-            conviction = 'medium';
             impact = '';
         }
         if (!sym) return '';
 
-        // Derive impact from positively/negatively affected lists if not set per-ticker.
         if (!impact || impact === 'neutral') {
             if (positivelyAffected.has(sym)) impact = 'positive';
             else if (negativelyAffected.has(sym)) impact = 'negative';
@@ -399,116 +392,190 @@ function renderTickerSignals(signal) {
 
         const isPositive = impact === 'positive' || impact === 'bullish';
         const isNegative = impact === 'negative' || impact === 'bearish';
-        const impactColor = isPositive ? 'secondary' : isNegative ? 'error' : 'primary-fixed-dim';
-        const impactIcon = isPositive ? 'trending_up' : isNegative ? 'trending_down' : 'horizontal_rule';
-        const impactLabel = isPositive ? 'BULLISH' : isNegative ? 'BEARISH' : 'NEUTRAL';
+        const pillColor = isPositive ? 'secondary' : isNegative ? 'error' : 'primary-fixed-dim';
+        const pillBg = isPositive ? 'bg-secondary/10' : isNegative ? 'bg-error/10' : 'bg-primary-fixed-dim/10';
+        const pillIcon = isPositive ? 'trending_up' : isNegative ? 'trending_down' : 'horizontal_rule';
 
-        const convColor = conviction === 'high' ? 'text-secondary' : conviction === 'low' ? 'text-on-surface-variant opacity-60' : 'text-on-surface-variant';
-
-        return `
-            <div class="flex items-center justify-between py-1.5 px-2 bg-surface-container rounded-sm">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[16px] text-${impactColor}">${impactIcon}</span>
-                    <span class="font-data-tabular text-data-tabular text-on-surface text-sm font-bold">${escapeHtml(sym)}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="font-label-caps text-label-caps ${convColor} text-[9px]">${escapeHtml(conviction.toUpperCase())}</span>
-                    <span class="font-label-caps text-label-caps text-${impactColor} text-[9px] bg-${impactColor}/10 px-1.5 py-0.5 rounded-sm">${impactLabel}</span>
-                </div>
-            </div>`;
+        return `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-${pillColor}/30 ${pillBg} text-${pillColor}">
+            <span class="material-symbols-outlined text-[14px]">${pillIcon}</span>
+            <span class="font-data-tabular font-bold text-sm">${escapeHtml(sym)}</span>
+        </div>`;
     }).filter(Boolean);
 
-    if (tickerRows.length === 0) return '';
+    return `<div class="flex flex-wrap justify-center gap-2 mb-6">${pills.join('')}</div>`;
+}
 
-    return `
-        <div class="flex flex-col gap-2">
-            <div class="font-label-caps text-label-caps text-on-surface-variant">TICKER SIGNALS</div>
-            <div class="flex flex-col gap-1">
-                ${tickerRows.join('')}
+function formatReasoning(text) {
+    if (!text) return '<p class="text-on-surface-variant/50 italic">No reasoning provided.</p>';
+    
+    let paragraphs = text.split(/\n\n+/);
+    if (paragraphs.length === 1) {
+        if (text.length > 200) {
+            const matches = text.match(/[^.!?]+[.!?]+/g);
+            if (matches && matches.length > 2) {
+                paragraphs = [];
+                for(let i=0; i<matches.length; i+=2) {
+                    paragraphs.push((matches[i] + (matches[i+1]||'')).trim());
+                }
+            }
+        }
+    }
+    
+    if (paragraphs.length >= 3) {
+        return `
+            <div class="mb-3">
+                <div class="text-xs text-primary font-medium mb-1">The Catalyst</div>
+                <div class="text-[13px] leading-relaxed text-on-surface-variant">${escapeHtml(paragraphs[0])}</div>
             </div>
-        </div>`;
+            <div class="mb-3">
+                <div class="text-xs text-primary font-medium mb-1">Market Mechanism</div>
+                <div class="text-[13px] leading-relaxed text-on-surface-variant">${escapeHtml(paragraphs[1])}</div>
+            </div>
+            <div>
+                <div class="text-xs text-primary font-medium mb-1">Expected Outcome</div>
+                <div class="text-[13px] leading-relaxed text-on-surface-variant">${escapeHtml(paragraphs.slice(2).join(' '))}</div>
+            </div>
+        `;
+    }
+    
+    return paragraphs.map(p => `<p class="text-[13px] leading-relaxed text-on-surface-variant mb-2 last:mb-0">${escapeHtml(p)}</p>`).join('');
 }
 
 function renderAnalysisNode(signal) {
     const isBull = signal.direction === 'BULLISH';
     const isBear = signal.direction === 'BEARISH';
     const color = isBull ? 'secondary' : isBear ? 'error' : 'primary-fixed-dim';
-    const icon = isBull ? 'trending_up' : isBear ? 'trending_down' : 'horizontal_rule';
     
-    // Process JSONB arrays safely
     const catalystChain = normalizeTextList(signal.catalyst_chain);
     
     let catalystHtml = '';
     if (catalystChain.length > 0) {
-        catalystHtml = catalystChain.map((step, idx) => `
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[16px] text-outline">article</span>
-                <span class="font-body-compact text-body-compact text-on-surface text-xs">${escapeHtml(step)}</span>
-            </div>
-            ${idx < catalystChain.length - 1 ? `
-            <div class="flex ml-2 border-l border-outline-variant pl-4 py-1">
-                <span class="material-symbols-outlined text-[16px] text-outline self-center">arrow_downward</span>
-            </div>` : ''}
-        `).join('');
+        catalystHtml = catalystChain.map((step, idx) => {
+            const isFirst = idx === 0;
+            const opacity = Math.max(40, 100 - (idx * 15));
+            const ringColor = isFirst ? `ring-2 ring-${color}/50` : 'ring-1 ring-outline-variant';
+            const dotColor = isFirst ? `bg-${color}` : 'bg-outline-variant';
+            const textColor = isFirst ? 'text-on-surface font-medium' : 'text-on-surface-variant';
+            
+            return `
+            <div class="relative pl-6 pb-4">
+                ${idx < catalystChain.length - 1 ? `<div class="absolute left-2 top-6 bottom-0 w-[2px] bg-gradient-to-b from-outline-variant/50 to-outline-variant/10"></div>` : ''}
+                
+                <div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-surface-container flex items-center justify-center ${ringColor} z-10">
+                    <div class="w-2 h-2 rounded-full ${dotColor}"></div>
+                </div>
+                
+                <div class="opacity-[${opacity}%] transition-opacity">
+                    ${isFirst ? `<div class="text-[9px] text-${color} font-label-caps mb-0.5">ROOT EVENT</div>` : ''}
+                    <div class="font-body-compact text-[13px] ${textColor} leading-relaxed">${escapeHtml(step)}</div>
+                </div>
+            </div>`;
+        }).join('');
     } else {
-        catalystHtml = `<span class="text-on-surface-variant text-xs italic">No causal chain data available.</span>`;
+        catalystHtml = `<div class="text-on-surface-variant/50 text-xs italic pb-4">No causal chain data available.</div>`;
     }
 
+    let domain = '';
+    try {
+        domain = signal.source_url ? new URL(signal.source_url).hostname.replace('www.','') : '';
+    } catch (e) {}
+    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32` : '';
+
+    const confVal = parseInt(signal.confidence, 10) || 0;
+    const isOverconfident = confVal >= 95;
+    let horizonText = escapeHtml(signal.time_horizon || 'Unknown');
+    if (horizonText.toLowerCase().includes('short')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(1-4 weeks)</span>';
+    else if (horizonText.toLowerCase().includes('medium')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(1-6 months)</span>';
+    else if (horizonText.toLowerCase().includes('long')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(6+ months)</span>';
+
     return `
-    <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-        <h2 class="font-headline-sm text-headline-sm text-on-surface">Analysis Node</h2>
-        <span class="material-symbols-outlined text-outline cursor-pointer hover:text-on-surface" onclick="clearAnalysisNode()">close</span>
+    <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2 cursor-pointer hover:text-on-surface text-on-surface-variant transition-colors" onclick="clearAnalysisNode()">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            <h2 class="font-label-caps text-label-caps tracking-widest">BACK</h2>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="bg-surface-container hover:bg-surface-bright text-on-surface-variant border border-outline-variant p-1.5 rounded transition-colors" title="Save Signal">
+                <span class="material-symbols-outlined text-[16px]">bookmark</span>
+            </button>
+            <button class="bg-surface-container hover:bg-surface-bright text-on-surface-variant border border-outline-variant p-1.5 rounded transition-colors" title="Set Alert">
+                <span class="material-symbols-outlined text-[16px]">notifications</span>
+            </button>
+        </div>
     </div>
-    <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 bg-surface-dim">
-        <!-- Header Status -->
-        <div class="flex flex-col items-center text-center">
-            <div class="w-16 h-16 rounded-full border-2 border-${color} flex items-center justify-center shadow-[0_0_16px_rgba(var(--${color}-rgb, 0,0,0),0.2)] mb-3">
-                <span class="material-symbols-outlined text-[32px] text-${color}">${icon}</span>
-            </div>
-            <div class="font-display-ticker text-display-ticker text-on-surface">${formatTicker(signal.tickers)}</div>
-            <div class="font-label-caps text-label-caps text-${color} tracking-widest mt-1">${signal.direction}</div>
+    
+    <div class="flex-1 overflow-y-auto p-5 flex flex-col bg-surface-dim">
+        
+        <!-- Direction Anchor -->
+        <div class="flex flex-col items-center text-center mt-2 mb-4">
+            <div class="font-display-ticker text-[36px] font-black text-${color} tracking-tight drop-shadow-[0_0_12px_rgba(var(--${color}-rgb,0,0,0),0.3)] leading-none">${signal.direction}</div>
+            <div class="text-on-surface-variant text-[10px] mt-2 uppercase tracking-[0.2em] font-label-caps">SIGNAL DIRECTION</div>
         </div>
 
-        <!-- Per-Ticker Signals -->
-        ${renderTickerSignals(signal)}
+        <!-- Inline Tickers -->
+        ${renderInlineTickers(signal)}
 
-        <!-- News Details -->
-        <div class="flex flex-col gap-2">
-            <div class="font-label-caps text-label-caps text-on-surface-variant">CATALYST NEWS</div>
-            <div class="bg-surface-container p-3 border border-outline-variant rounded-sm flex flex-col gap-2">
-                ${signal.source_name ? `<div class="text-xs font-label-caps text-primary">${escapeHtml(signal.source_name)}</div>` : ''}
-                <div class="text-sm font-headline-sm text-on-surface">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
-                ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-primary hover:underline flex items-center gap-1 mt-1"><span class="material-symbols-outlined text-[14px]">open_in_new</span> View Source Article</a>` : ''}
+        <!-- Catalyst News -->
+        <div class="flex flex-col mb-5">
+            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">CATALYST NEWS</div>
+            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4 hover:border-outline-variant transition-colors group relative overflow-hidden">
+                <div class="flex items-center gap-2 mb-2">
+                    ${faviconUrl ? `<img src="${faviconUrl}" class="w-4 h-4 rounded-sm bg-white/10 p-0.5" alt="source"/>` : `<span class="material-symbols-outlined text-[16px] text-on-surface-variant">newspaper</span>`}
+                    <span class="font-label-caps text-xs text-on-surface-variant group-hover:text-primary transition-colors">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
+                    <span class="text-on-surface-variant/30 text-xs">•</span>
+                    <span class="font-data-tabular text-[10px] text-on-surface-variant/70">${timeAgo(signal.created_at)}</span>
+                </div>
+                <div class="text-[15px] font-headline-sm text-on-surface leading-snug mb-3">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
+                ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors w-fit"><span class="material-symbols-outlined text-[14px]">open_in_new</span> Read Article</a>` : ''}
             </div>
         </div>
 
         <!-- Metrics Grid -->
-        <div class="grid grid-cols-2 gap-panel-gap">
-            <div class="bg-surface-container-low p-2 border border-outline-variant rounded-sm">
-                <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">CONFIDENCE</div>
-                <div class="font-data-tabular text-data-tabular text-${color} text-lg">${signal.confidence ?? 'N/A'}%</div>
+        <div class="grid grid-cols-2 gap-3 mb-5">
+            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3">
+                <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2 flex items-center justify-between">
+                    CONFIDENCE
+                    ${isOverconfident ? `<span class="material-symbols-outlined text-[14px] text-error" title="High confidence warning">warning</span>` : ''}
+                </div>
+                <div class="flex items-end gap-2 mb-2">
+                    <div class="font-display-ticker text-2xl text-${color} leading-none">${confVal}%</div>
+                </div>
+                <div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-${color} h-full rounded-full" style="width: ${confVal}%"></div>
+                </div>
             </div>
-            <div class="bg-surface-container-low p-2 border border-outline-variant rounded-sm">
-                <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">IMPACT HORIZON</div>
-                <div class="font-data-tabular text-data-tabular text-on-surface text-lg">${escapeHtml(signal.time_horizon || 'Unknown')}</div>
+            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3">
+                <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">IMPACT HORIZON</div>
+                <div class="font-headline-sm text-[15px] text-on-surface capitalize mt-1 leading-tight">${horizonText}</div>
             </div>
         </div>
 
         <!-- Causal Chain -->
-        <div class="flex flex-col gap-2">
-            <div class="font-label-caps text-label-caps text-on-surface-variant">CAUSAL CHAIN</div>
-            <div class="bg-surface-container p-3 border border-outline-variant rounded-sm flex flex-col">
+        <div class="flex flex-col mb-5">
+            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">CAUSAL CHAIN</div>
+            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4 pb-0">
                 ${catalystHtml}
             </div>
         </div>
 
         <!-- AI Reasoning -->
-        <div class="flex flex-col gap-2 mb-4">
-            <div class="font-label-caps text-label-caps text-on-surface-variant">AI REASONING</div>
-            <p class="font-body-compact text-body-compact text-on-surface text-xs leading-relaxed text-justify opacity-80">
-                ${escapeHtml(signal.reasoning || 'No reasoning provided.')}
-            </p>
+        <div class="flex flex-col mb-6">
+            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">AI REASONING</div>
+            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4">
+                ${formatReasoning(signal.reasoning)}
+            </div>
         </div>
+
+        <!-- Actions -->
+        <div class="mt-auto pt-2 flex gap-2">
+            <button class="flex-1 bg-primary text-on-primary font-label-caps text-xs py-2.5 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-[16px]">bookmark_add</span> SAVE SIGNAL
+            </button>
+            <button class="flex-1 bg-surface-container border border-outline-variant text-on-surface font-label-caps text-xs py-2.5 rounded-md hover:bg-surface-variant transition-colors flex items-center justify-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px]">add_alert</span> SET ALERT
+            </button>
+        </div>
+
     </div>
     `;
 }

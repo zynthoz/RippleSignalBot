@@ -6,7 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const REDIS_URL = process.env.REDIS_URL;
-const POLL_INTERVAL_MS = 60000; // 60 seconds
+const POLL_INTERVAL_MS = 900000; // 15 minutes (Safer for free tier NewsAPI)
 const MAX_ARTICLE_AGE_HOURS = 72; // Only consider articles from the last 72 hours (3 days)
 
 // Centralized config object — change batch size here
