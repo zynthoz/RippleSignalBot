@@ -10,6 +10,8 @@ let signalFeedContainer;
 let analysisNodeContainer;
 let centerPanel;
 let newSignalIndicator;
+let currentPage = 1;
+const pageSize = 10;
 
 // Formatting Utilities
 function escapeHtml(value) {
@@ -346,10 +348,10 @@ function renderSignalCard(signal) {
     const reasoningExcerpt = escapeHtml((signal.source_headline || signal.reasoning || '').substring(0, 40)) + '...';
 
     const isActive = signal.id === activeSignalId;
-    const activeClasses = isActive ? 'bg-surface-variant ring-1 ring-primary' : 'bg-surface';
+    const activeClasses = isActive ? 'bg-surface-card-elevated ring-1 ring-primary' : 'bg-surface-card';
 
     return `
-    <div class="${activeClasses} border border-outline-variant border-l-4 border-l-${color} p-2 cursor-pointer hover:bg-surface-variant transition-colors group" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
+    <div class="${activeClasses} border border-hairline border-l-4 border-l-${color} p-2 cursor-pointer hover:bg-surface-card-elevated transition-colors group rounded-md" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
         <div class="flex justify-between items-start mb-2">
             <div class="flex items-center gap-1 text-${color} font-label-caps text-label-caps">
                 <span class="material-symbols-outlined text-[12px]">${icon}</span> ${label}
@@ -489,8 +491,8 @@ function renderAnalysisNode(signal) {
     else if (horizonText.toLowerCase().includes('long')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(6+ months)</span>';
 
     return `
-    <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center shrink-0">
-        <div class="flex items-center gap-2 cursor-pointer hover:text-on-surface text-on-surface-variant transition-colors" onclick="clearAnalysisNode()">
+    <div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2 cursor-pointer hover:text-body-strong text-muted transition-colors" onclick="clearAnalysisNode()">
             <span class="material-symbols-outlined text-[18px]">arrow_back</span>
             <h2 class="font-label-caps text-label-caps tracking-widest">BACK</h2>
         </div>
@@ -504,7 +506,7 @@ function renderAnalysisNode(signal) {
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto p-5 flex flex-col bg-surface-dim">
+    <div class="flex-1 overflow-y-auto p-5 flex flex-col bg-canvas-deep">
         
         <!-- Direction Anchor -->
         <div class="flex flex-col items-center text-center mt-2 mb-4">
@@ -518,7 +520,7 @@ function renderAnalysisNode(signal) {
         <!-- Catalyst News -->
         <div class="flex flex-col mb-5">
             <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">CATALYST NEWS</div>
-            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4 hover:border-outline-variant transition-colors group relative overflow-hidden">
+            <div class="bg-surface-card border border-hairline rounded-lg p-4 hover:border-hairline-strong transition-colors group relative overflow-hidden">
                 <div class="flex items-center gap-2 mb-2">
                     ${faviconUrl ? `<img src="${faviconUrl}" class="w-4 h-4 rounded-sm bg-white/10 p-0.5" alt="source"/>` : `<span class="material-symbols-outlined text-[16px] text-on-surface-variant">newspaper</span>`}
                     <span class="font-label-caps text-xs text-on-surface-variant group-hover:text-primary transition-colors">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
@@ -532,7 +534,7 @@ function renderAnalysisNode(signal) {
 
         <!-- Metrics Grid -->
         <div class="grid grid-cols-2 gap-3 mb-5">
-            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3">
+            <div class="bg-surface-card border border-hairline rounded-lg p-3">
                 <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2 flex items-center justify-between">
                     CONFIDENCE
                     ${isOverconfident ? `<span class="material-symbols-outlined text-[14px] text-error" title="High confidence warning">warning</span>` : ''}
@@ -544,7 +546,7 @@ function renderAnalysisNode(signal) {
                     <div class="bg-${color} h-full rounded-full" style="width: ${confVal}%"></div>
                 </div>
             </div>
-            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3">
+            <div class="bg-surface-card border border-hairline rounded-lg p-3">
                 <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">IMPACT HORIZON</div>
                 <div class="font-headline-sm text-[15px] text-on-surface capitalize mt-1 leading-tight">${horizonText}</div>
             </div>
@@ -553,7 +555,7 @@ function renderAnalysisNode(signal) {
         <!-- Causal Chain -->
         <div class="flex flex-col mb-5">
             <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">CAUSAL CHAIN</div>
-            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4 pb-0">
+            <div class="bg-surface-card border border-hairline rounded-lg p-4 pb-0">
                 ${catalystHtml}
             </div>
         </div>
@@ -561,7 +563,7 @@ function renderAnalysisNode(signal) {
         <!-- AI Reasoning -->
         <div class="flex flex-col mb-6">
             <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">AI REASONING</div>
-            <div class="bg-surface-container-low border border-outline-variant/50 rounded-lg p-4">
+            <div class="bg-surface-card border border-hairline rounded-lg p-4">
                 ${formatReasoning(signal.reasoning)}
             </div>
         </div>
@@ -596,13 +598,13 @@ function renderCenterGraph(signal) {
 
     const topology = buildTopologyModel(signal);
 
-    centerPanel.innerHTML = `<div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center z-10 relative">
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Catalyst Topology</h2>
+    centerPanel.innerHTML = `<div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center z-10 relative">
+            <h2 class="font-headline-sm text-headline-sm text-body-strong">Catalyst Topology</h2>
             <button id="reheat-btn" class="text-on-surface-variant p-1 rounded hover:bg-surface-bright transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
             </button>
         </div>
-        <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-[#1e1e1e]" tabindex="0">
+        <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-canvas-deep" tabindex="0">
             <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-container border border-outline-variant rounded-lg p-4 shadow-lg shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
             <div id="d3-legend" class="absolute top-3 left-3 z-40 pointer-events-none flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-on-surface-variant tracking-wide">
                 <span class="flex items-center"><span style="color:#4a90e2;" class="mr-1 text-[14px]">●</span> Root Cause</span>
@@ -792,6 +794,25 @@ function initD3Graph(signal, topology) {
     svg.on("click", () => { pinnedNode = null; hideTooltip(); resetFocus(); });
 
     const defs = svg.append("defs");
+
+    // Grid pattern
+    const pattern = defs.append("pattern")
+        .attr("id", "bg-grid")
+        .attr("width", 40)
+        .attr("height", 40)
+        .attr("patternUnits", "userSpaceOnUse");
+    pattern.append("path")
+        .attr("d", "M 40 0 L 0 0 0 40")
+        .attr("fill", "none")
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", "0.5")
+        .attr("opacity", "0.15");
+
+    svg.insert("rect", "g")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("fill", "url(#bg-grid)");
+
     // Glow filter for root node
     const glow = defs.append("filter").attr("id", "glow").attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
     glow.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
@@ -877,8 +898,10 @@ function initD3Graph(signal, topology) {
             if (d.group === 'root') return '';
             return truncate(d.label, 28);
         })
-        .attr("dx", d => d.radius + 5).attr("dy", 4)
-        .attr("fill", d => d.group === 'root' ? '#4a90e2' : d.group === 'risk' ? '#ff6b6b99' : d.group === 'ticker' ? '#ddd' : '#999')
+        .attr("dx", d => d.group === 'ticker' ? 0 : d.radius + 5)
+        .attr("dy", 4)
+        .attr("text-anchor", d => d.group === 'ticker' ? "middle" : "start")
+        .attr("fill", d => d.group === 'root' ? '#4a90e2' : d.group === 'risk' ? '#ff6b6b99' : d.group === 'ticker' ? '#222' : '#999')
         .attr("font-size", d => d.group === 'ticker' ? "12px" : "9px")
         .attr("font-weight", d => d.group === 'ticker' ? "600" : "400")
         .attr("font-family", "sans-serif").style("pointer-events", "none")
@@ -1016,12 +1039,31 @@ function renderSignalFeed() {
         });
     }
     
-    if (filtered.length === 0) {
+    // Pagination logic
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
+    
+    // Update Pagination UI
+    const prevBtn = document.getElementById('page-prev');
+    const nextBtn = document.getElementById('page-next');
+    const pageIndicator = document.getElementById('page-indicator');
+    
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+    if (pageIndicator) pageIndicator.textContent = `PAGE ${currentPage} OF ${totalPages}`;
+    
+    // Slice data
+    const startIdx = (currentPage - 1) * pageSize;
+    const paginated = filtered.slice(startIdx, startIdx + pageSize);
+    
+    if (paginated.length === 0) {
         signalFeedContainer.innerHTML = `<div class="text-on-surface-variant p-4 text-center text-sm italic">No signals found.</div>`;
         return;
     }
     
-    signalFeedContainer.innerHTML = filtered.map(renderSignalCard).join('');
+    signalFeedContainer.innerHTML = paginated.map(renderSignalCard).join('');
 }
 
 function updateFilterCounts() {
@@ -1055,11 +1097,11 @@ async function loadSignalDetails(id) {
     activeSignalId = id;
     // Highlight active card
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-variant', 'ring-1', 'ring-primary');
-        el.classList.add('bg-surface');
+        el.classList.remove('bg-surface-card-elevated', 'ring-1', 'ring-primary');
+        el.classList.add('bg-surface-card');
         if (el.dataset.id === id) {
-            el.classList.remove('bg-surface');
-            el.classList.add('bg-surface-variant', 'ring-1', 'ring-primary');
+            el.classList.remove('bg-surface-card');
+            el.classList.add('bg-surface-card-elevated', 'ring-1', 'ring-primary');
         }
     });
 
@@ -1077,8 +1119,8 @@ async function loadSignalDetails(id) {
 
 function clearAnalysisNode() {
     analysisNodeContainer.innerHTML = `
-        <div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Analysis Node</h2>
+        <div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center">
+            <h2 class="font-headline-sm text-headline-sm text-body-strong">Analysis Node</h2>
         </div>
         <div class="flex-1 flex items-center justify-center text-on-surface-variant text-sm p-4 text-center opacity-50">
             Select a signal from the feed to view full causal analysis.
@@ -1087,8 +1129,8 @@ function clearAnalysisNode() {
     activeSignalId = null;
     renderCenterGraph(null);
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-variant', 'ring-1', 'ring-primary');
-        el.classList.add('bg-surface');
+        el.classList.remove('bg-surface-card-elevated', 'ring-1', 'ring-primary');
+        el.classList.add('bg-surface-card');
     });
 }
 
@@ -1139,22 +1181,44 @@ document.addEventListener('DOMContentLoaded', () => {
     centerPanel = document.getElementById('center-panel');
     newSignalIndicator = document.getElementById('new-signal-indicator');
 
-    document.getElementById('filter-ALL').addEventListener('click', () => setFilter('ALL'));
-    document.getElementById('filter-BULL').addEventListener('click', () => setFilter('BULLISH'));
-    document.getElementById('filter-BEAR').addEventListener('click', () => setFilter('BEARISH'));
+    document.getElementById('filter-ALL').addEventListener('click', () => { currentPage = 1; setFilter('ALL'); });
+    document.getElementById('filter-BULL').addEventListener('click', () => { currentPage = 1; setFilter('BULLISH'); });
+    document.getElementById('filter-BEAR').addEventListener('click', () => { currentPage = 1; setFilter('BEARISH'); });
 
     document.getElementById('signal-search').addEventListener('input', (e) => {
         searchQuery = e.target.value.toLowerCase();
+        currentPage = 1;
         renderSignalFeed();
     });
 
     document.getElementById('new-signal-pill').addEventListener('click', () => {
         displayedSignals = [...signals];
         unseenSignalsCount = 0;
+        currentPage = 1;
         document.getElementById('new-signal-pill').classList.add('hidden');
         renderSignalFeed();
         signalFeedContainer.scrollTop = 0;
     });
+
+    const prevBtn = document.getElementById('page-prev');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderSignalFeed();
+                signalFeedContainer.scrollTop = 0;
+            }
+        });
+    }
+
+    const nextBtn = document.getElementById('page-next');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            currentPage++;
+            renderSignalFeed();
+            signalFeedContainer.scrollTop = 0;
+        });
+    }
 
     // Initial load
     clearAnalysisNode();

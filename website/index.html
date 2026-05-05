@@ -1,174 +1,208 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en" style=""><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MarketPulse AI</title>
-<!-- Fonts & Icons -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Inter:wght@400;600&amp;family=Work+Sans:wght@700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<!-- Design System Theme -->
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                    "on-secondary": "#003828",
-                    "outline": "#8c909f",
-                    "secondary-fixed": "#60fcc6",
-                    "on-primary-fixed-variant": "#004395",
-                    "surface-variant": "#2b3544",
-                    "on-background": "#d9e3f7",
-                    "primary-fixed": "#d8e2ff",
-                    "inverse-on-surface": "#273140",
-                    "inverse-surface": "#d9e3f7",
-                    "surface-container-lowest": "#050f1c",
-                    "surface-tint": "#adc6ff",
-                    "tertiary-fixed-dim": "#ffb3ae",
-                    "tertiary-fixed": "#ffdad7",
-                    "tertiary": "#ffb3ae",
-                    "on-error-container": "#ffdad6",
-                    "primary-fixed-dim": "#adc6ff",
-                    "on-tertiary-fixed": "#410004",
-                    "surface-container-highest": "#2b3544",
-                    "on-surface-variant": "#c2c6d6",
-                    "surface-container-low": "#121c2a",
-                    "surface-container-high": "#212a39",
-                    "on-tertiary-container": "#5c0008",
-                    "inverse-primary": "#005ac2",
-                    "on-secondary-container": "#004d38",
-                    "on-primary": "#002e6a",
-                    "on-primary-fixed": "#001a42",
-                    "secondary": "#43e5b1",
-                    "surface-container": "#16202e",
-                    "primary-container": "#4d8eff",
-                    "primary": "#adc6ff",
-                    "on-surface": "#d9e3f7",
-                    "error": "#ffb4ab",
-                    "secondary-container": "#01c896",
-                    "on-secondary-fixed": "#002116",
-                    "error-container": "#93000a",
-                    "secondary-fixed-dim": "#3adfab",
-                    "on-primary-container": "#00285d",
-                    "on-tertiary-fixed-variant": "#930014",
-                    "surface-dim": "#091421",
-                    "tertiary-container": "#ff5352",
-                    "background": "#091421",
-                    "on-secondary-fixed-variant": "#00513b",
-                    "surface-bright": "#303a49",
-                    "surface": "#091421",
-                    "on-error": "#690005",
-                    "outline-variant": "#424754",
-                    "on-tertiary": "#68000b"
-            },
-            "borderRadius": {
-                    "DEFAULT": "0.25rem",
-                    "lg": "0.5rem",
-                    "xl": "0.75rem",
-                    "full": "9999px"
-            },
-            "spacing": {
-                    "cell-padding-x": "8px",
-                    "container-padding": "12px",
-                    "cell-padding-y": "4px",
-                    "unit": "4px",
-                    "panel-gap": "2px"
-            },
-            "fontFamily": {
-                    "body-compact": ["Inter"],
-                    "headline-sm": ["Inter"],
-                    "display-ticker": ["IBM Plex Mono"],
-                    "data-tabular": ["IBM Plex Mono"],
-                    "label-caps": ["Work Sans"]
-            },
-            "fontSize": {
-                    "body-compact": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
-                    "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
-                    "display-ticker": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
-                    "data-tabular": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
-                    "label-caps": ["10px", {"lineHeight": "12px", "letterSpacing": "0.05em", "fontWeight": "700"}]
-            }
+<html class="dark" lang="en" style="">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>MarketPulse AI</title>
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Design System Theme -->
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0007cd",
+            "primary-active": "#0005a3",
+            "primary-glow": "#1a26ff",
+            "accent-cyan": "#00d4ff",
+            "accent-violet": "#7b3aed",
+            "canvas": "#0f0f0f",
+            "canvas-deep": "#000000",
+            "surface-card": "#181818",
+            "surface-card-elevated": "#222222",
+            "surface-strong": "#2a2a2a",
+            "hairline": "#222222",
+            "hairline-soft": "#1a1a1a",
+            "hairline-strong": "#333333",
+            "ink": "#ffffff",
+            "body": "#a8a8a8",
+            "body-strong": "#ffffff",
+            "muted": "#888888",
+            "muted-soft": "#666666",
+            "on-primary": "#ffffff",
+            "semantic-success": "#33d17a",
+            "semantic-error": "#ff4d4d",
+            "secondary": "#43e5b1",
+            "error": "#ffb4ab",
+            "primary-fixed-dim": "#adc6ff",
+          },
+          borderRadius: {
+            "none": "0px",
+            "xs": "4px",
+            "sm": "6px",
+            "md": "8px",
+            "lg": "12px",
+            "xl": "16px",
+            "pill": "9999px",
+            "full": "9999px",
+          },
+          spacing: {
+            "xxs": "4px",
+            "xs": "8px",
+            "sm": "12px",
+            "base": "16px",
+            "md": "20px",
+            "lg": "24px",
+            "xl": "32px",
+            "xxl": "48px",
+            "section": "96px",
+            "cell-padding-x": "8px",
+            "container-padding": "12px",
+            "cell-padding-y": "4px",
+            "unit": "4px",
+            "panel-gap": "2px"
+          },
+          fontFamily: {
+            "body": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            "code": ["JetBrains Mono", "monospace"],
+            "body-compact": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            "headline-sm": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            "display-ticker": ["JetBrains Mono", "monospace"],
+            "data-tabular": ["JetBrains Mono", "monospace"],
+            "label-caps": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
+          },
+          fontSize: {
+            "body-compact": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "display-ticker": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "data-tabular": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.88px", "fontWeight": "600" }]
           }
         }
       }
-    </script>
-    <style>
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #2b3544; /* surface-variant */
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #424754; /* outline-variant */
-      }
-      /* Firefox */
-      * {
-        scrollbar-width: thin;
-        scrollbar-color: #2b3544 transparent;
-      }
-    </style>
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #222222;
+      /* surface-card-elevated */
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #333333;
+      /* hairline-strong */
+    }
+
+    /* Firefox */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #222222 transparent;
+    }
+  </style>
 </head>
-<body class="bg-background text-on-surface h-screen w-screen overflow-hidden antialiased flex flex-col font-body-compact">
-<!-- TopNavBar -->
-<header class="z-50 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center w-full px-4 shrink-0" style="height: 48px;">
-<div class="flex items-center gap-6">
-<div class="text-lg font-black text-primary tracking-widest flex items-center gap-2">
-                MARKETPULSE AI
-                <div id="new-signal-indicator" class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_#01c896]"></div>
-</div>
-</div>
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" style='font-variation-settings: "FILL" 0;'>sensors</span>
-<span class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" style='font-variation-settings: "FILL" 0;'>settings</span>
-<span class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" style='font-variation-settings: "FILL" 0;'>terminal</span>
-</div>
-</header>
-<!-- Main Workspace (Design System Governed) -->
-<main class="flex-1 p-container-padding flex gap-panel-gap bg-background overflow-hidden relative justify-between w-full">
-<!-- Left Sidebar: Signal Feed -->
-<section class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-1">
-<div class="px-cell-padding-x py-cell-padding-y border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Signal Feed</h2>
-</div>
-<div class="px-cell-padding-x py-2 flex gap-1 border-b border-outline-variant bg-surface-container-lowest">
-<button id="filter-ALL" class="flex-1 bg-primary text-on-primary font-label-caps text-label-caps py-1 text-center rounded-sm">ALL</button>
-<button id="filter-BULL" class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BULL</button>
-<button id="filter-BEAR" class="flex-1 border border-outline-variant text-on-surface-variant font-label-caps text-label-caps py-1 text-center rounded-sm hover:bg-surface-variant">BEAR</button>
-</div>
-<div class="px-cell-padding-x py-2 border-b border-outline-variant bg-surface-container-low">
-    <div class="relative flex items-center">
-        <span class="material-symbols-outlined absolute left-2 text-on-surface-variant text-[14px]">search</span>
-        <input id="signal-search" type="text" placeholder="Search $TICKER or Theme..." class="w-full bg-surface-variant border border-outline-variant rounded-sm text-on-surface text-sm pl-7 pr-2 py-1 outline-none focus:border-primary placeholder-on-surface-variant/50 transition-colors">
+
+<body class="bg-canvas text-body h-screen w-screen overflow-hidden antialiased flex flex-col font-body-compact">
+  <!-- TopNavBar -->
+  <header class="z-50 bg-canvas border-b border-hairline flex justify-between items-center w-full px-4 shrink-0"
+    style="height: 64px;">
+    <div class="flex items-center gap-6">
+      <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">
+        MarketPulse AI
+      </div>
     </div>
-</div>
-<div id="new-signal-pill" class="hidden absolute top-[130px] left-1/2 -translate-x-1/2 z-20 bg-primary text-on-primary font-label-caps text-[10px] px-3 py-1 rounded-full cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:bg-primary/90 flex items-center gap-1 transition-all">
-    <span class="material-symbols-outlined text-[12px]">arrow_upward</span> <span id="new-signal-count">1</span> New Signals
-</div>
-<div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit bg-surface-dim">
-    <!-- Signals populated by app.js -->
-</div>
-</section>
-<!-- Main Area: Center Node Container -->
-<section id="center-panel" class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-[2]">
-    <!-- Graph populated by app.js -->
-</section>
-<!-- Right Detail Panel -->
-<section id="analysis-node" class="bg-surface flex flex-col border border-outline-variant rounded-sm h-full shrink-0 relative z-10 flex-[1.2]">
-    <!-- Populated by app.js -->
-</section>
-</main>
-<script src="app.js"></script>
-</body></html>
+    <div class="flex items-center gap-3">
+      <span
+        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        style='font-variation-settings: "FILL" 0;'>sensors</span>
+      <span
+        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        style='font-variation-settings: "FILL" 0;'>settings</span>
+      <span
+        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        style='font-variation-settings: "FILL" 0;'>terminal</span>
+    </div>
+  </header>
+  <!-- Main Workspace (Design System Governed) -->
+  <main class="flex-1 p-container-padding flex gap-panel-gap bg-canvas overflow-hidden relative justify-between w-full">
+    <!-- Left Sidebar: Signal Feed -->
+    <section
+      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-1">
+      <div
+        class="px-cell-padding-x py-cell-padding-y border-b border-hairline flex justify-between items-center bg-surface-card">
+        <h2 class="font-headline-sm text-headline-sm text-body-strong">Signal Feed</h2>
+      </div>
+      <div class="px-cell-padding-x py-2 flex gap-1 border-b border-hairline bg-surface-card">
+        <button id="filter-ALL"
+          class="flex-1 bg-primary text-on-primary font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-primary-active transition-colors">ALL</button>
+        <button id="filter-BULL"
+          class="flex-1 border border-hairline-strong text-muted font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-surface-card-elevated hover:text-body-strong transition-colors">BULL</button>
+        <button id="filter-BEAR"
+          class="flex-1 border border-hairline-strong text-muted font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-surface-card-elevated hover:text-body-strong transition-colors">BEAR</button>
+      </div>
+      <div class="px-cell-padding-x py-2 border-b border-hairline bg-surface-card">
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2 text-muted text-[14px]">search</span>
+          <input id="signal-search" type="text" placeholder="Search $TICKER or Theme..."
+            class="w-full bg-surface-card-elevated border border-hairline-strong rounded-md text-body-strong text-sm pl-7 pr-2 py-1.5 outline-none focus:border-primary placeholder-muted/50 transition-colors">
+        </div>
+      </div>
+      <div id="new-signal-pill"
+        class="hidden absolute top-[130px] left-1/2 -translate-x-1/2 z-20 bg-primary text-on-primary font-label-caps text-[11px] px-3 py-1 rounded-pill cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:bg-primary-active flex items-center gap-1 transition-all">
+        <span class="material-symbols-outlined text-[12px]">arrow_upward</span> <span id="new-signal-count">1</span> New
+        Signals
+      </div>
+      <div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit bg-canvas-deep">
+        <!-- Signals populated by app.js -->
+      </div>
+      <div class="px-cell-padding-x py-2 border-t border-hairline bg-surface-card flex justify-between items-center shrink-0">
+        <button id="page-prev" class="px-2 py-1 bg-surface-card-elevated hover:bg-hairline-strong text-body-strong disabled:opacity-30 disabled:hover:bg-surface-card-elevated disabled:cursor-not-allowed rounded-md text-sm transition-colors border border-hairline flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+        </button>
+        <span id="page-indicator" class="text-xs text-muted font-label-caps tracking-widest">PAGE 1 OF 1</span>
+        <button id="page-next" class="px-2 py-1 bg-surface-card-elevated hover:bg-hairline-strong text-body-strong disabled:opacity-30 disabled:hover:bg-surface-card-elevated disabled:cursor-not-allowed rounded-md text-sm transition-colors border border-hairline flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        </button>
+      </div>
+    </section>
+    <!-- Main Area: Center Node Container -->
+    <section id="center-panel"
+      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[2] overflow-hidden">
+      <!-- Graph populated by app.js -->
+    </section>
+    <!-- Right Detail Panel -->
+    <section id="analysis-node"
+      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[1.2]">
+      <!-- Populated by app.js -->
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+
+</html>
