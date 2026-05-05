@@ -536,17 +536,17 @@ function renderCenterGraph(signal) {
             </button>
         </div>
         <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-[#1e1e1e]" tabindex="0">
-            <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm" style="top: 16px; right: 16px; background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 12px; min-width: 260px; max-width: 320px; color: #fff;"></div>
-            <div id="d3-legend" class="absolute top-3 left-3 z-40 pointer-events-none flex flex-wrap gap-x-3 gap-y-1" style="font-size:10px; font-family:sans-serif; color:#999;">
-                <span><span style="color:#4a90e2;">●</span> Root Cause</span>
-                <span><span style="color:#ffcf56;">◆</span> Direct Effect</span>
-                <span><span style="color:#6cb4d9;">◆</span> Ripple Effect</span>
-                <span><span style="color:#a3ffb4;">●</span> Beneficiary</span>
-                <span><span style="color:#ff7a7a;">●</span> Headwind</span>
-                <span><span style="color:#ff6b6b;">◇</span> Risk</span>
+            <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-container border border-outline-variant rounded-lg p-4 shadow-lg shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
+            <div id="d3-legend" class="absolute top-3 left-3 z-40 pointer-events-none flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-on-surface-variant tracking-wide">
+                <span class="flex items-center"><span style="color:#4a90e2;" class="mr-1 text-[14px]">●</span> Root Cause</span>
+                <span class="flex items-center"><span style="color:#ffcf56;" class="mr-1 text-[14px]">◆</span> Direct Effect</span>
+                <span class="flex items-center"><span style="color:#6cb4d9;" class="mr-1 text-[14px]">◆</span> Ripple Effect</span>
+                <span class="flex items-center"><span style="color:#a3ffb4;" class="mr-1 text-[14px]">●</span> Beneficiary</span>
+                <span class="flex items-center"><span style="color:#ff7a7a;" class="mr-1 text-[14px]">●</span> Headwind</span>
+                <span class="flex items-center"><span style="color:#ff6b6b;" class="mr-1 text-[16px]">◇</span> Risk</span>
             </div>
-            <div id="d3-caption" class="absolute bottom-4 left-4 right-4 bg-black/60 text-white/90 p-4 rounded-lg border border-white/10 text-sm font-sans backdrop-blur-sm z-40 pointer-events-none">
-                <strong style="color: #4a90e2;">ROOT CAUSE:</strong> ${escapeHtml(topology.root)}
+            <div id="d3-caption" class="absolute bottom-4 left-4 right-4 bg-surface-container/90 text-on-surface p-4 rounded-lg border border-outline-variant text-sm backdrop-blur-md z-40 pointer-events-none shadow-lg shadow-black/50 leading-relaxed">
+                <strong class="font-bold" style="color: #4a90e2; letter-spacing: 0.05em;">ROOT CAUSE:</strong> <span class="opacity-90">${escapeHtml(topology.root)}</span>
             </div>
         </div>`;
 
@@ -674,8 +674,29 @@ function initD3Graph(signal, topology) {
         const why = m && m.why_it_matters ? String(m.why_it_matters) : `${impact.toUpperCase()} impact on ${sym}`;
         const company = getCompanyName(sym);
 
+        let companyType = '';
+        if (topology && Array.isArray(topology.branches)) {
+            for (const b of topology.branches) {
+                const searchNodes = (list) => {
+                    for (const n of list) {
+                        if (n.ticker && n.ticker.toUpperCase() === sym) return n;
+                        if (n.children) {
+                            const found = searchNodes(n.children);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+                const match = searchNodes(b.nodes || []);
+                if (match && match.kind && match.kind.toLowerCase() !== 'ticker') {
+                    companyType = match.kind;
+                    break;
+                }
+            }
+        }
+
         nodes.push({
-            id, label: sym, ticker: sym, companyName: company, group: 'ticker', layer: 3,
+            id, label: sym, ticker: sym, companyName: company, companyType: companyType, group: 'ticker', layer: 3,
             radius: 20, color: col, shape: 'circle',
             detail: why, directionInfo: impact.toUpperCase() + ' IMPACT', conviction: conv
         });
@@ -859,16 +880,20 @@ function initD3Graph(signal, topology) {
     }
 
     function showTooltip(d) {
-        const groupLabel = { root: 'ROOT CAUSE', first_order: 'DIRECT EFFECT', second_order: 'RIPPLE EFFECT', ticker: 'TICKER', risk: 'THESIS RISK' }[d.group] || d.group;
+        let groupLabel = { root: 'ROOT CAUSE', first_order: 'DIRECT EFFECT', second_order: 'RIPPLE EFFECT', ticker: 'TICKER', risk: 'THESIS RISK' }[d.group] || d.group;
+        if (d.group === 'ticker' && d.companyType) {
+            groupLabel = d.companyType.toUpperCase();
+        }
+
         tooltip.transition().duration(200).style("opacity", 1);
         tooltip.html(
-            `<div style="font-size:9px;letter-spacing:0.08em;color:${d.color};margin-bottom:4px;">${groupLabel}</div>` +
-            (d.ticker ? `<div style="font-weight:bold;font-size:18px;margin-bottom:1px;">${escapeHtml(d.ticker)}</div>` : '') +
-            (d.companyName ? `<div style="font-size:11px;color:#aaa;margin-bottom:6px;">${escapeHtml(d.companyName)}</div>` : '') +
-            (!d.ticker ? `<div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#eee;">${escapeHtml(d.label)}</div>` : '') +
-            (d.directionInfo ? `<span style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;font-size:10px;color:${d.color}">${d.directionInfo}</span> ` : '') +
-            (d.conviction ? `<span style="font-size:10px;color:#888;">${d.conviction.toUpperCase()} conviction</span>` : '') +
-            `<div style="margin-top:8px;font-size:11px;color:#bbb;line-height:1.4;">${escapeHtml(d.detail)}</div>`
+            `<div class="text-[10px] tracking-wider font-semibold mb-1" style="color:${d.color};">${escapeHtml(groupLabel)}</div>` +
+            (d.ticker ? `<div class="font-bold text-lg text-on-surface mb-0.5">${escapeHtml(d.ticker)}</div>` : '') +
+            (d.companyName ? `<div class="text-xs text-on-surface-variant mb-2">${escapeHtml(d.companyName)}</div>` : '') +
+            (!d.ticker && d.group !== 'root' ? `<div class="mb-2 text-[13px] font-semibold text-on-surface">${escapeHtml(d.label)}</div>` : '') +
+            (d.directionInfo ? `<span class="inline-block bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-medium mr-2" style="color:${d.color}">${d.directionInfo}</span> ` : '') +
+            (d.conviction && d.group !== 'root' ? `<span class="text-[10px] text-on-surface-variant font-medium">${d.conviction.toUpperCase()} CONVICTION</span>` : '') +
+            `<div class="mt-3 text-xs text-on-surface-variant leading-relaxed">${escapeHtml(d.detail)}</div>`
         );
     }
 
@@ -879,6 +904,17 @@ function initD3Graph(signal, topology) {
         .on("click", (event, d) => { event.stopPropagation(); pinnedNode = d; focusNode(d); showTooltip(d); });
 
     document.getElementById('reheat-btn').addEventListener('click', (e) => { e.stopPropagation(); simulation.alpha(1).restart(); });
+
+    // Fast-forward the simulation so it is neatly laid out and uniform without overlapping on first load
+    simulation.stop();
+    for (let i = 0, n = Math.ceil(Math.log(simulation.alphaMin()) / Math.log(1 - simulation.alphaDecay())); i < n; ++i) {
+        simulation.tick();
+    }
+
+    // Set initial static positions immediately
+    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
 
     simulation.on("tick", () => {
         link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
