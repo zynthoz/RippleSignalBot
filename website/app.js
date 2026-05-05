@@ -340,28 +340,43 @@ function renderSignalCard(signal) {
     const isBull = signal.direction === 'BULLISH';
     const isBear = signal.direction === 'BEARISH';
     const color = isBull ? 'secondary' : isBear ? 'error' : 'primary-fixed-dim';
-    const icon = isBull ? 'trending_up' : isBear ? 'trending_down' : 'horizontal_rule';
-    const label = signal.direction;
-    const ticker = formatTicker(signal.tickers);
-    const conf = signal.confidence ?? 'N/A';
+    
+    // Tickers
+    const tickers = normalizeTickerList(signal.tickers);
+    const tickerHtml = tickers.length > 0 
+        ? `<div class="flex gap-1.5 flex-wrap">` + tickers.map(t => `<span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">${escapeHtml(t)}</span>`).join('') + `</div>`
+        : `<span class="text-muted text-[11px] font-data-tabular">N/A</span>`;
+
+    // Confidence
+    const confVal = parseInt(signal.confidence, 10) || 0;
+    let confColor = 'error';
+    if (confVal >= 80) confColor = 'secondary';
+    else if (confVal >= 60) confColor = 'accent-violet';
+
     const age = timeAgo(signal.created_at);
-    const reasoningExcerpt = escapeHtml((signal.source_headline || signal.reasoning || '').substring(0, 40)) + '...';
+    const reasoningExcerpt = escapeHtml((signal.source_headline || signal.reasoning || '').substring(0, 55)) + '...';
 
     const isActive = signal.id === activeSignalId;
-    const activeClasses = isActive ? 'bg-surface-card-elevated ring-1 ring-primary' : 'bg-surface-card';
+    const activeClasses = isActive ? 'bg-surface-card-elevated border-l-primary' : 'bg-surface-card border-l-transparent';
 
     return `
-    <div class="${activeClasses} border border-hairline border-l-4 border-l-${color} p-2 cursor-pointer hover:bg-surface-card-elevated transition-colors group rounded-md" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
+    <div class="${activeClasses} border-l-[3px] border-y border-r border-hairline p-3 cursor-pointer hover:bg-surface-card-elevated hover:border-l-${color} transition-all group rounded-md" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
         <div class="flex justify-between items-start mb-2">
-            <div class="flex items-center gap-1 text-${color} font-label-caps text-label-caps">
-                <span class="material-symbols-outlined text-[12px]">${icon}</span> ${label}
-            </div>
-            <span class="font-data-tabular text-data-tabular text-on-surface-variant text-[10px]">${age}</span>
+            ${tickerHtml}
+            <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">${age}</span>
         </div>
-        <div class="font-data-tabular text-data-tabular text-on-surface text-sm mb-1 group-hover:text-primary transition-colors">${ticker}</div>
+        <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90 group-hover:opacity-100 transition-opacity">${reasoningExcerpt}</div>
         <div class="flex justify-between items-end">
-            <span class="font-body-compact text-body-compact text-on-surface-variant text-[11px]">${reasoningExcerpt}</span>
-            <span class="font-data-tabular text-data-tabular text-${color} font-bold">${conf}%</span>
+            <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-${color}"></div>
+                <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">${signal.direction}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="font-data-tabular text-[11px] text-${confColor} font-bold">${confVal}%</span>
+                <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                    <div class="bg-${confColor} h-full rounded-full" style="width: ${confVal}%"></div>
+                </div>
+            </div>
         </div>
     </div>`;
 }
@@ -454,27 +469,27 @@ function renderAnalysisNode(signal) {
     if (catalystChain.length > 0) {
         catalystHtml = catalystChain.map((step, idx) => {
             const isFirst = idx === 0;
-            const opacity = Math.max(40, 100 - (idx * 15));
-            const ringColor = isFirst ? `ring-2 ring-${color}/50` : 'ring-1 ring-outline-variant';
-            const dotColor = isFirst ? `bg-${color}` : 'bg-outline-variant';
-            const textColor = isFirst ? 'text-on-surface font-medium' : 'text-on-surface-variant';
+            const opacity = isFirst ? '100' : Math.max(50, 90 - (idx * 15));
+            const ringColor = isFirst ? `ring-2 ring-${color}/50` : 'ring-1 ring-hairline-strong';
+            const dotColor = isFirst ? `bg-${color}` : 'bg-hairline-strong';
+            const textColor = isFirst ? 'text-body-strong font-semibold' : 'text-body';
             
             return `
             <div class="relative pl-6 pb-4">
-                ${idx < catalystChain.length - 1 ? `<div class="absolute left-2 top-6 bottom-0 w-[2px] bg-gradient-to-b from-outline-variant/50 to-outline-variant/10"></div>` : ''}
+                ${idx < catalystChain.length - 1 ? `<div class="absolute left-2 top-6 bottom-0 w-[2px] bg-gradient-to-b from-hairline-strong to-transparent"></div>` : ''}
                 
-                <div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-surface-container flex items-center justify-center ${ringColor} z-10">
+                <div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-surface-card flex items-center justify-center ${ringColor} z-10">
                     <div class="w-2 h-2 rounded-full ${dotColor}"></div>
                 </div>
                 
                 <div class="opacity-[${opacity}%] transition-opacity">
-                    ${isFirst ? `<div class="text-[9px] text-${color} font-label-caps mb-0.5">ROOT EVENT</div>` : ''}
+                    ${isFirst ? `<div class="text-[10px] text-${color} font-label-caps mb-0.5 tracking-widest">ROOT EVENT</div>` : ''}
                     <div class="font-body-compact text-[13px] ${textColor} leading-relaxed">${escapeHtml(step)}</div>
                 </div>
             </div>`;
         }).join('');
     } else {
-        catalystHtml = `<div class="text-on-surface-variant/50 text-xs italic pb-4">No causal chain data available.</div>`;
+        catalystHtml = `<div class="text-muted text-xs italic pb-4">No causal chain data available.</div>`;
     }
 
     let domain = '';
@@ -486,98 +501,100 @@ function renderAnalysisNode(signal) {
     const confVal = parseInt(signal.confidence, 10) || 0;
     const isOverconfident = confVal >= 95;
     let horizonText = escapeHtml(signal.time_horizon || 'Unknown');
-    if (horizonText.toLowerCase().includes('short')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(1-4 weeks)</span>';
-    else if (horizonText.toLowerCase().includes('medium')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(1-6 months)</span>';
-    else if (horizonText.toLowerCase().includes('long')) horizonText += ' <span class="text-on-surface-variant/50 text-xs font-normal">(6+ months)</span>';
+    if (horizonText.toLowerCase().includes('short')) horizonText += ' <span class="text-muted text-xs font-normal">(1-4 weeks)</span>';
+    else if (horizonText.toLowerCase().includes('medium')) horizonText += ' <span class="text-muted text-xs font-normal">(1-6 months)</span>';
+    else if (horizonText.toLowerCase().includes('long')) horizonText += ' <span class="text-muted text-xs font-normal">(6+ months)</span>';
 
     return `
-    <div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center shrink-0">
-        <div class="flex items-center gap-2 cursor-pointer hover:text-body-strong text-muted transition-colors" onclick="clearAnalysisNode()">
+    <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full" style="height: 48px;">
+        <div class="flex items-center gap-2 cursor-pointer hover:text-body-strong text-muted transition-colors" onclick="clearAnalysisNode()" title="Back to default view">
             <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-            <h2 class="font-label-caps text-label-caps tracking-widest">BACK</h2>
+            <h2 class="font-headline-sm text-[11px] font-label-caps tracking-widest uppercase">ANALYSIS NODE</h2>
         </div>
         <div class="flex items-center gap-2">
-            <button class="bg-surface-container hover:bg-surface-bright text-on-surface-variant border border-outline-variant p-1.5 rounded transition-colors" title="Save Signal">
+            <button class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Save Signal">
                 <span class="material-symbols-outlined text-[16px]">bookmark</span>
             </button>
-            <button class="bg-surface-container hover:bg-surface-bright text-on-surface-variant border border-outline-variant p-1.5 rounded transition-colors" title="Set Alert">
+            <button class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Set Alert">
                 <span class="material-symbols-outlined text-[16px]">notifications</span>
             </button>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto p-5 flex flex-col bg-canvas-deep">
-        
-        <!-- Direction Anchor -->
-        <div class="flex flex-col items-center text-center mt-2 mb-4">
-            <div class="font-display-ticker text-[36px] font-black text-${color} tracking-tight drop-shadow-[0_0_12px_rgba(var(--${color}-rgb,0,0,0),0.3)] leading-none">${signal.direction}</div>
-            <div class="text-on-surface-variant text-[10px] mt-2 uppercase tracking-[0.2em] font-label-caps">SIGNAL DIRECTION</div>
-        </div>
-
-        <!-- Inline Tickers -->
-        ${renderInlineTickers(signal)}
-
-        <!-- Catalyst News -->
-        <div class="flex flex-col mb-5">
-            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">CATALYST NEWS</div>
-            <div class="bg-surface-card border border-hairline rounded-lg p-4 hover:border-hairline-strong transition-colors group relative overflow-hidden">
-                <div class="flex items-center gap-2 mb-2">
-                    ${faviconUrl ? `<img src="${faviconUrl}" class="w-4 h-4 rounded-sm bg-white/10 p-0.5" alt="source"/>` : `<span class="material-symbols-outlined text-[16px] text-on-surface-variant">newspaper</span>`}
-                    <span class="font-label-caps text-xs text-on-surface-variant group-hover:text-primary transition-colors">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
-                    <span class="text-on-surface-variant/30 text-xs">•</span>
-                    <span class="font-data-tabular text-[10px] text-on-surface-variant/70">${timeAgo(signal.created_at)}</span>
-                </div>
-                <div class="text-[15px] font-headline-sm text-on-surface leading-snug mb-3">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
-                ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors w-fit"><span class="material-symbols-outlined text-[14px]">open_in_new</span> Read Article</a>` : ''}
-            </div>
-        </div>
-
-        <!-- Metrics Grid -->
-        <div class="grid grid-cols-2 gap-3 mb-5">
-            <div class="bg-surface-card border border-hairline rounded-lg p-3">
-                <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2 flex items-center justify-between">
-                    CONFIDENCE
-                    ${isOverconfident ? `<span class="material-symbols-outlined text-[14px] text-error" title="High confidence warning">warning</span>` : ''}
-                </div>
-                <div class="flex items-end gap-2 mb-2">
-                    <div class="font-display-ticker text-2xl text-${color} leading-none">${confVal}%</div>
-                </div>
-                <div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-${color} h-full rounded-full" style="width: ${confVal}%"></div>
+    <div class="flex-1 overflow-y-auto flex flex-col bg-canvas-deep relative">
+        <div class="p-5 flex-1 flex flex-col">
+            <!-- Direction Anchor -->
+            <div class="flex justify-center mt-2 mb-4">
+                <div class="bg-${color}/10 border border-${color}/20 text-${color} px-4 py-1.5 rounded-full font-label-caps text-[11px] tracking-widest uppercase shadow-[0_0_10px_rgba(var(--${color}-rgb,0,0,0),0.1)] flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-${color}"></div>
+                    ${signal.direction}
                 </div>
             </div>
-            <div class="bg-surface-card border border-hairline rounded-lg p-3">
-                <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-2">IMPACT HORIZON</div>
-                <div class="font-headline-sm text-[15px] text-on-surface capitalize mt-1 leading-tight">${horizonText}</div>
+
+            <!-- Inline Tickers -->
+            ${renderInlineTickers(signal)}
+
+            <!-- Catalyst News -->
+            <div class="flex flex-col mb-6">
+                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">CATALYST NEWS</div>
+                <div class="bg-surface-card border border-hairline rounded-lg p-4 hover:border-hairline-strong transition-colors group relative overflow-hidden">
+                    <div class="flex items-center gap-2 mb-2">
+                        ${faviconUrl ? `<img src="${faviconUrl}" class="w-4 h-4 rounded-sm bg-white/10 p-0.5" alt="source"/>` : `<span class="material-symbols-outlined text-[16px] text-muted">newspaper</span>`}
+                        <span class="font-label-caps text-xs text-muted group-hover:text-primary transition-colors">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
+                        <span class="text-muted/30 text-xs">•</span>
+                        <span class="font-data-tabular text-[10px] text-muted/70">${timeAgo(signal.created_at)}</span>
+                    </div>
+                    <div class="text-[15px] font-headline-sm text-body-strong leading-snug mb-3">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
+                    ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors w-fit"><span class="material-symbols-outlined text-[14px]">open_in_new</span> Read Article</a>` : ''}
+                </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-surface-card border border-hairline rounded-lg p-3">
+                    <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1 flex items-center justify-between">
+                        CONFIDENCE
+                        ${isOverconfident ? `<span class="material-symbols-outlined text-[14px] text-error" title="High confidence warning">warning</span>` : ''}
+                    </div>
+                    <div class="flex items-end gap-2 mb-3">
+                        <div class="font-display-ticker text-2xl text-${color} leading-none">${confVal}%</div>
+                    </div>
+                    <div class="w-full bg-hairline h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-${color} h-full rounded-full" style="width: ${confVal}%"></div>
+                    </div>
+                </div>
+                <div class="bg-surface-card border border-hairline rounded-lg p-3">
+                    <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">IMPACT HORIZON</div>
+                    <div class="font-headline-sm text-[15px] text-body-strong capitalize mt-1 leading-tight">${horizonText}</div>
+                </div>
+            </div>
+
+            <!-- Causal Chain -->
+            <div class="flex flex-col mb-6">
+                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">CAUSAL CHAIN</div>
+                <div class="bg-surface-card border border-hairline rounded-lg p-4 pb-0">
+                    ${catalystHtml}
+                </div>
+            </div>
+
+            <!-- AI Reasoning -->
+            <div class="flex flex-col mb-20">
+                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">AI REASONING</div>
+                <div class="bg-surface-card border border-hairline rounded-lg p-4">
+                    ${formatReasoning(signal.reasoning)}
+                </div>
             </div>
         </div>
 
-        <!-- Causal Chain -->
-        <div class="flex flex-col mb-5">
-            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">CAUSAL CHAIN</div>
-            <div class="bg-surface-card border border-hairline rounded-lg p-4 pb-0">
-                ${catalystHtml}
-            </div>
-        </div>
-
-        <!-- AI Reasoning -->
-        <div class="flex flex-col mb-6">
-            <div class="text-[10px] text-on-surface-variant/60 font-label-caps tracking-[0.1em] mb-3">AI REASONING</div>
-            <div class="bg-surface-card border border-hairline rounded-lg p-4">
-                ${formatReasoning(signal.reasoning)}
-            </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="mt-auto pt-2 flex gap-2">
-            <button class="flex-1 bg-primary text-on-primary font-label-caps text-xs py-2.5 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20">
+        <!-- Sticky Actions -->
+        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex gap-2 z-20">
+            <button class="flex-1 bg-primary text-on-primary font-label-caps text-[11px] py-3 rounded-md hover:bg-primary-active transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 tracking-wider">
                 <span class="material-symbols-outlined text-[16px]">bookmark_add</span> SAVE SIGNAL
             </button>
-            <button class="flex-1 bg-surface-container border border-outline-variant text-on-surface font-label-caps text-xs py-2.5 rounded-md hover:bg-surface-variant transition-colors flex items-center justify-center gap-1.5">
+            <button class="flex-1 bg-surface-card-elevated border border-hairline-strong text-body-strong font-label-caps text-[11px] py-3 rounded-md hover:bg-hairline transition-colors flex items-center justify-center gap-1.5 tracking-wider">
                 <span class="material-symbols-outlined text-[16px]">add_alert</span> SET ALERT
             </button>
         </div>
-
     </div>
     `;
 }
@@ -592,30 +609,47 @@ function getStyleColor(tone) {
 
 function renderCenterGraph(signal) {
     if (!signal) {
-        centerPanel.innerHTML = `<div class="flex-1 flex items-center justify-center text-on-surface-variant font-body-compact opacity-50">Select a signal to view catalyst chain graph</div>`;
+        centerPanel.innerHTML = `
+        <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0 w-full z-10" style="height: 48px;">
+            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center h-full w-full bg-canvas-deep">
+            <div class="w-20 h-20 rounded-full bg-surface-card flex items-center justify-center mb-4 border border-hairline shadow-inner">
+                <span class="material-symbols-outlined text-[32px] text-muted/30">account_tree</span>
+            </div>
+            <div class="text-[14px] font-medium text-body-strong mb-1">Awaiting Catalyst</div>
+            <div class="text-[12px] max-w-[250px]">Select a signal to render the topology graph and causal network.</div>
+        </div>`;
         return;
     }
 
     const topology = buildTopologyModel(signal);
 
-    centerPanel.innerHTML = `<div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center z-10 relative">
-            <h2 class="font-headline-sm text-headline-sm text-body-strong">Catalyst Topology</h2>
-            <button id="reheat-btn" class="text-on-surface-variant p-1 rounded hover:bg-surface-bright transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
+    centerPanel.innerHTML = `<div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full z-10" style="height: 48px;">
+            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
+            <button id="reheat-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
             </button>
         </div>
-        <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-canvas-deep" tabindex="0">
-            <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-container border border-outline-variant rounded-lg p-4 shadow-lg shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
-            <div id="d3-legend" class="absolute top-3 left-3 z-40 pointer-events-none flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-on-surface-variant tracking-wide">
-                <span class="flex items-center"><span style="color:#4a90e2;" class="mr-1 text-[14px]">●</span> Root Cause</span>
-                <span class="flex items-center"><span style="color:#ffcf56;" class="mr-1 text-[14px]">◆</span> Direct Effect</span>
-                <span class="flex items-center"><span style="color:#6cb4d9;" class="mr-1 text-[14px]">◆</span> Ripple Effect</span>
-                <span class="flex items-center"><span style="color:#a3ffb4;" class="mr-1 text-[14px]">●</span> Beneficiary</span>
-                <span class="flex items-center"><span style="color:#ff7a7a;" class="mr-1 text-[14px]">●</span> Headwind</span>
-                <span class="flex items-center"><span style="color:#ff6b6b;" class="mr-1 text-[16px]">◇</span> Risk</span>
+        <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-canvas" tabindex="0">
+            <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-card-elevated border border-hairline rounded-lg p-4 shadow-xl shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
+            
+            <div class="absolute top-4 left-4 z-40 group">
+                <div class="bg-surface-card-elevated/80 backdrop-blur border border-hairline px-3 py-1.5 rounded-full text-muted text-xs flex items-center gap-2 cursor-help shadow-md">
+                    <span class="material-symbols-outlined text-[14px]">info</span> Legend
+                </div>
+                <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[160px]">
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#4a90e2;" class="mr-2 text-[14px]">●</span> Root Cause</span>
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ffcf56;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#6cb4d9;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#a3ffb4;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ff7a7a;" class="mr-2 text-[14px]">●</span> Headwind</span>
+                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ff6b6b;" class="mr-2 text-[16px]">◇</span> Risk</span>
+                </div>
             </div>
-            <div id="d3-caption" class="absolute bottom-4 left-4 right-4 bg-surface-container/90 text-on-surface p-4 rounded-lg border border-outline-variant text-sm backdrop-blur-md z-40 pointer-events-none shadow-lg shadow-black/50 leading-relaxed">
-                <strong class="font-bold" style="color: #4a90e2; letter-spacing: 0.05em;">ROOT CAUSE:</strong> <span class="opacity-90">${escapeHtml(topology.root)}</span>
+
+            <div id="d3-caption" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface-card/60 backdrop-blur-xl text-body-strong px-6 py-3 rounded-full border border-hairline text-sm z-40 pointer-events-none shadow-lg shadow-black/50 leading-relaxed whitespace-nowrap">
+                <strong class="font-bold text-primary tracking-widest text-[11px] mr-2">ROOT CAUSE:</strong> <span class="opacity-90">${escapeHtml(topology.root)}</span>
             </div>
         </div>`;
 
@@ -827,7 +861,7 @@ function initD3Graph(signal, topology) {
     });
 
     // Layer distance from center
-    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.16, 2: Math.min(width, height) * 0.28, 3: Math.min(width, height) * 0.40, risk: Math.min(width, height) * 0.24 };
+    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.22, 2: Math.min(width, height) * 0.38, 3: Math.min(width, height) * 0.55, risk: Math.min(width, height) * 0.32 };
 
     // Custom radial-layer force
     function forceLayer(strength) {
@@ -849,19 +883,19 @@ function initD3Graph(signal, topology) {
 
     const simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
-            if (d.dashed) return 80;
-            return 70 + (d.value || 0) * 4;
-        }).strength(0.7))
-        .force("charge", d3.forceManyBody().strength(d => d.group === 'root' ? -900 : d.group === 'risk' ? -150 : -350))
-        .force("layer", forceLayer(0.15))
-        .force("collide", d3.forceCollide().radius(d => d.radius + 16).strength(0.8));
+            if (d.dashed) return 120;
+            return 100 + (d.value || 0) * 8;
+        }).strength(0.6))
+        .force("charge", d3.forceManyBody().strength(d => d.group === 'root' ? -1500 : d.group === 'risk' ? -250 : -600))
+        .force("layer", forceLayer(0.18))
+        .force("collide", d3.forceCollide().radius(d => d.radius + 20).strength(0.9));
 
     // Links
     const link = g.append("g").selectAll("line").data(links).enter().append("line")
         .attr("stroke", d => d.dashed ? '#ff6b6b44' : '#444')
-        .attr("stroke-width", d => d.dashed ? 1 : Math.max(1, d.value * 0.3))
+        .attr("stroke-width", d => d.dashed ? 1 : Math.max(1.5, d.value * 0.6))
         .attr("stroke-dasharray", d => d.dashed ? "6,4" : "none")
-        .attr("opacity", 0.7)
+        .attr("opacity", d => d.dashed ? 0.3 : 0.6)
         .attr("marker-end", d => "url(#arr-" + d.color.replace('#', '') + ")");
 
     // Link labels (relationship reason on hover visibility handled via CSS)
@@ -953,15 +987,31 @@ function initD3Graph(signal, topology) {
             : '';
 
         tooltip.transition().duration(200).style("opacity", 1);
-        tooltip.html(
-            `<div class="text-[10px] tracking-wider font-semibold mb-1" style="color:${d.color};">${escapeHtml(groupLabel)}</div>` +
-            (d.ticker ? `<div class="font-bold text-lg text-on-surface mb-0.5">${escapeHtml(d.ticker)}</div>` : '') +
-            (tickerDescriptor ? `<div class="text-xs text-on-surface-variant mb-2">${escapeHtml(tickerDescriptor)}</div>` : '') +
-            (!d.ticker && d.group !== 'root' ? `<div class="mb-2 text-[13px] font-semibold text-on-surface">${escapeHtml(d.label)}</div>` : '') +
-            (d.directionInfo ? `<span class="inline-block bg-surface-container-highest px-2 py-0.5 rounded text-[10px] font-medium mr-2" style="color:${d.color}">${d.directionInfo}</span> ` : '') +
-            (d.conviction && d.group !== 'root' ? `<span class="text-[10px] text-on-surface-variant font-medium">${d.conviction.toUpperCase()} CONVICTION</span>` : '') +
-            `<div class="mt-3 text-xs text-on-surface-variant leading-relaxed">${escapeHtml(d.detail)}</div>`
-        );
+        
+        let content = `<div class="text-[10px] font-label-caps tracking-widest uppercase mb-2" style="color:${d.color};">${escapeHtml(groupLabel)}</div>`;
+        
+        if (d.ticker) {
+            content += `<div class="font-display-ticker text-lg text-body-strong mb-0.5">${escapeHtml(d.ticker)}</div>`;
+            if (tickerDescriptor) {
+                content += `<div class="text-xs text-muted mb-3">${escapeHtml(tickerDescriptor)}</div>`;
+            }
+            content += `<div class="flex items-center gap-2 mb-3">`;
+            if (d.directionInfo) {
+                content += `<span class="inline-block bg-surface-card-elevated border border-hairline-strong px-2 py-0.5 rounded text-[10px] font-medium" style="color:${d.color}">${d.directionInfo}</span>`;
+            }
+            if (d.conviction) {
+                content += `<span class="text-[10px] text-muted font-medium">${d.conviction.toUpperCase()} CONVICTION</span>`;
+            }
+            content += `</div>`;
+        } else if (d.group !== 'root') {
+            if (d.conviction) {
+                content += `<div class="mb-2"><span class="text-[10px] text-muted font-medium tracking-wide">${d.conviction.toUpperCase()} CONVICTION</span></div>`;
+            }
+        }
+
+        content += `<div class="text-[13px] font-body-compact text-body-strong leading-relaxed opacity-90">${escapeHtml(d.detail)}</div>`;
+
+        tooltip.html(content);
     }
 
     function hideTooltip() { tooltip.transition().duration(200).style("opacity", 0); }
@@ -972,18 +1022,30 @@ function initD3Graph(signal, topology) {
 
     document.getElementById('reheat-btn').addEventListener('click', (e) => { e.stopPropagation(); simulation.alpha(1).restart(); });
 
+    // Bounding constraints
+    function constrainNodes() {
+        nodes.forEach(d => {
+            const r = d.radius || 10;
+            d.x = Math.max(40 + r, Math.min(width - 40 - r, d.x));
+            d.y = Math.max(60 + r, Math.min(height - 90 - r, d.y)); // 90px bottom padding for the root cause pill
+        });
+    }
+
     // Fast-forward the simulation so it is neatly laid out and uniform without overlapping on first load
     simulation.stop();
     for (let i = 0, n = Math.ceil(Math.log(simulation.alphaMin()) / Math.log(1 - simulation.alphaDecay())); i < n; ++i) {
         simulation.tick();
+        constrainNodes();
     }
 
     // Set initial static positions immediately
+    constrainNodes();
     link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
     linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
     node.attr("transform", d => `translate(${d.x},${d.y})`);
 
     simulation.on("tick", () => {
+        constrainNodes();
         link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
         linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
         node.attr("transform", d => `translate(${d.x},${d.y})`);
@@ -1097,11 +1159,15 @@ async function loadSignalDetails(id) {
     activeSignalId = id;
     // Highlight active card
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-card-elevated', 'ring-1', 'ring-primary');
-        el.classList.add('bg-surface-card');
+        el.classList.remove('bg-surface-card-elevated', 'border-l-primary');
+        el.classList.add('bg-surface-card', 'border-l-transparent');
+        
+        // Remove individual direction colors if any were added by hover
+        ['secondary', 'error', 'primary-fixed-dim'].forEach(c => el.classList.remove(`border-l-${c}`));
+        
         if (el.dataset.id === id) {
-            el.classList.remove('bg-surface-card');
-            el.classList.add('bg-surface-card-elevated', 'ring-1', 'ring-primary');
+            el.classList.remove('bg-surface-card', 'border-l-transparent');
+            el.classList.add('bg-surface-card-elevated', 'border-l-primary');
         }
     });
 
@@ -1119,18 +1185,23 @@ async function loadSignalDetails(id) {
 
 function clearAnalysisNode() {
     analysisNodeContainer.innerHTML = `
-        <div class="px-cell-padding-x py-cell-padding-y border-b border-hairline bg-surface-card flex justify-between items-center">
-            <h2 class="font-headline-sm text-headline-sm text-body-strong">Analysis Node</h2>
+        <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0" style="height: 48px;">
+            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Analysis Node</h2>
         </div>
-        <div class="flex-1 flex items-center justify-center text-on-surface-variant text-sm p-4 text-center opacity-50">
-            Select a signal from the feed to view full causal analysis.
+        <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center">
+            <div class="w-16 h-16 rounded-full bg-surface-card-elevated flex items-center justify-center mb-4 border border-hairline">
+                <span class="material-symbols-outlined text-[24px] text-muted/50">hub</span>
+            </div>
+            <div class="text-[13px] font-medium text-body-strong mb-1">No Signal Selected</div>
+            <div class="text-[11px] max-w-[200px]">Select a signal from the feed to view its causal chain analysis.</div>
         </div>
     `;
     activeSignalId = null;
     renderCenterGraph(null);
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-card-elevated', 'ring-1', 'ring-primary');
-        el.classList.add('bg-surface-card');
+        el.classList.remove('bg-surface-card-elevated', 'border-l-primary');
+        el.classList.add('bg-surface-card', 'border-l-transparent');
+        ['secondary', 'error', 'primary-fixed-dim'].forEach(c => el.classList.remove(`border-l-${c}`));
     });
 }
 

@@ -131,7 +131,7 @@
 <body class="bg-canvas text-body h-screen w-screen overflow-hidden antialiased flex flex-col font-body-compact">
   <!-- TopNavBar -->
   <header class="z-50 bg-canvas border-b border-hairline flex justify-between items-center w-full px-4 shrink-0"
-    style="height: 64px;">
+    style="height: 48px;">
     <div class="flex items-center gap-6">
       <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">
         MarketPulse AI
@@ -150,13 +150,12 @@
     </div>
   </header>
   <!-- Main Workspace (Design System Governed) -->
-  <main class="flex-1 p-container-padding flex gap-panel-gap bg-canvas overflow-hidden relative justify-between w-full">
+  <main class="flex-1 p-4 flex gap-4 bg-canvas overflow-hidden relative justify-between w-full">
     <!-- Left Sidebar: Signal Feed -->
     <section
       class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-1">
-      <div
-        class="px-cell-padding-x py-cell-padding-y border-b border-hairline flex justify-between items-center bg-surface-card">
-        <h2 class="font-headline-sm text-headline-sm text-body-strong">Signal Feed</h2>
+      <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0" style="height: 48px;">
+        <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Signal Feed</h2>
       </div>
       <div class="px-cell-padding-x py-2 flex gap-1 border-b border-hairline bg-surface-card">
         <button id="filter-ALL"
@@ -166,11 +165,11 @@
         <button id="filter-BEAR"
           class="flex-1 border border-hairline-strong text-muted font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-surface-card-elevated hover:text-body-strong transition-colors">BEAR</button>
       </div>
-      <div class="px-cell-padding-x py-2 border-b border-hairline bg-surface-card">
-        <div class="relative flex items-center">
-          <span class="material-symbols-outlined absolute left-2 text-muted text-[14px]">search</span>
+      <div class="px-cell-padding-x py-3 border-b border-hairline bg-surface-card">
+        <div class="relative flex items-center shadow-sm">
+          <span class="material-symbols-outlined absolute left-3 text-muted text-[16px]">search</span>
           <input id="signal-search" type="text" placeholder="Search $TICKER or Theme..."
-            class="w-full bg-surface-card-elevated border border-hairline-strong rounded-md text-body-strong text-sm pl-7 pr-2 py-1.5 outline-none focus:border-primary placeholder-muted/50 transition-colors">
+            class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm pl-9 pr-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted/50 transition-all">
         </div>
       </div>
       <div id="new-signal-pill"
@@ -178,16 +177,16 @@
         <span class="material-symbols-outlined text-[12px]">arrow_upward</span> <span id="new-signal-count">1</span> New
         Signals
       </div>
-      <div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit bg-canvas-deep">
+      <div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit pb-4 bg-canvas-deep">
         <!-- Signals populated by app.js -->
       </div>
-      <div class="px-cell-padding-x py-2 border-t border-hairline bg-surface-card flex justify-between items-center shrink-0">
-        <button id="page-prev" class="px-2 py-1 bg-surface-card-elevated hover:bg-hairline-strong text-body-strong disabled:opacity-30 disabled:hover:bg-surface-card-elevated disabled:cursor-not-allowed rounded-md text-sm transition-colors border border-hairline flex items-center justify-center">
-            <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+      <div id="pagination-container" class="px-cell-padding-x border-t border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full relative z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]" style="height: 48px;">
+        <button id="page-prev" class="w-8 h-8 flex items-center justify-center bg-surface-card hover:bg-surface-card-elevated text-body-strong rounded transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
+            <span class="material-symbols-outlined text-[18px] text-muted group-hover:text-on-surface transition-colors">chevron_left</span>
         </button>
-        <span id="page-indicator" class="text-xs text-muted font-label-caps tracking-widest">PAGE 1 OF 1</span>
-        <button id="page-next" class="px-2 py-1 bg-surface-card-elevated hover:bg-hairline-strong text-body-strong disabled:opacity-30 disabled:hover:bg-surface-card-elevated disabled:cursor-not-allowed rounded-md text-sm transition-colors border border-hairline flex items-center justify-center">
-            <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+        <span id="page-indicator" class="font-headline-sm font-label-caps text-[11px] tracking-widest text-muted">PAGE 1 OF 5</span>
+        <button id="page-next" class="w-8 h-8 flex items-center justify-center bg-surface-card hover:bg-surface-card-elevated text-body-strong rounded transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
+            <span class="material-symbols-outlined text-[18px] text-muted group-hover:text-on-surface transition-colors">chevron_right</span>
         </button>
       </div>
     </section>
