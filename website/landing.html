@@ -23,6 +23,9 @@
             --colors-body: #a0a0a0;
             --colors-hairline: #222222;
             --spacing-section: 120px;
+            /* Card spotlight tracking vars */
+            --mouse-x: 50%;
+            --mouse-y: 50%;
         }
 
         html {
@@ -42,6 +45,117 @@
             line-height: 1.5;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            position: relative;
+        }
+
+        /* ─── Phase 1: Animated Gradient Background ─── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 30%, rgba(0, 7, 180, 0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 50% at 80% 70%, rgba(45, 27, 105, 0.10) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 40% at 50% 100%, rgba(0, 4, 80, 0.08) 0%, transparent 60%);
+            animation: bgShift 16s ease-in-out infinite alternate;
+            opacity: 1;
+        }
+
+        @keyframes bgShift {
+            0% {
+                background-position: 0% 0%, 100% 100%, 50% 100%;
+            }
+
+            33% {
+                background-position: 30% 20%, 70% 80%, 60% 100%;
+            }
+
+            66% {
+                background-position: 60% 40%, 40% 60%, 40% 100%;
+            }
+
+            100% {
+                background-position: 100% 0%, 0% 100%, 50% 100%;
+            }
+        }
+
+        /* Floating orbs behind content */
+        .bg-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+
+        .bg-orb-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 7, 205, 0.18) 0%, transparent 70%);
+            top: -200px;
+            left: -100px;
+            animation-delay: 0s;
+            animation-duration: 22s;
+            opacity: 0.8;
+        }
+
+        .bg-orb-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(45, 27, 105, 0.14) 0%, transparent 70%);
+            bottom: -150px;
+            right: -100px;
+            animation-delay: -8s;
+            animation-duration: 26s;
+            opacity: 0.8;
+        }
+
+        .bg-orb-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 50, 200, 0.10) 0%, transparent 70%);
+            top: 50%;
+            left: 60%;
+            animation-delay: -14s;
+            animation-duration: 18s;
+            opacity: 0.8;
+        }
+
+        @keyframes orbFloat {
+            0% {
+                transform: translate(0px, 0px) scale(1);
+            }
+
+            25% {
+                transform: translate(30px, -40px) scale(1.05);
+            }
+
+            50% {
+                transform: translate(-20px, 60px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(50px, 30px) scale(1.08);
+            }
+
+            100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+        }
+
+        /* Ensure all content sits above orbs */
+        nav,
+        section,
+        .hero,
+        .ticker-wrap,
+        .cta-band,
+        footer {
+            position: relative;
+            z-index: 1;
         }
 
         h1,
@@ -403,6 +517,82 @@
             z-index: 1;
         }
 
+        /* ─── Phase 2: Interactive Card Styles ─── */
+        .stat-card,
+        .feature-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Spotlight radial that follows cursor */
+        .stat-card::before,
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: radial-gradient(400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                    rgba(0, 7, 205, 0.10) 0%,
+                    transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .stat-card:hover::before,
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        /* Sweeping border glow on hover */
+        .stat-card::after,
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: conic-gradient(from 0deg at 50% 50%,
+                    transparent 0deg,
+                    rgba(0, 7, 205, 0.8) 60deg,
+                    rgba(99, 120, 255, 1) 90deg,
+                    rgba(0, 7, 205, 0.8) 120deg,
+                    transparent 180deg);
+            -webkit-mask:
+                linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            animation: borderSpin 3s linear infinite;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .stat-card:hover::after,
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+
+        @keyframes borderSpin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Ensure card content sits above pseudo-elements */
+        .stat-card>*,
+        .feature-card>* {
+            position: relative;
+            z-index: 1;
+        }
+
         .pipeline-dot {
             position: absolute;
             top: 50%;
@@ -411,18 +601,11 @@
             background: var(--colors-primary);
             border-radius: 50%;
             transform: translateY(-50%);
-            box-shadow: 0 0 10px var(--colors-primary);
-            animation: flow 4s infinite linear;
-        }
-
-        @keyframes flow {
-            0% {
-                left: 0;
-            }
-
-            100% {
-                left: 100%;
-            }
+            box-shadow: 0 0 20px var(--colors-primary);
+            left: 0;
+            z-index: 1;
+            transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
         }
 
         /* Screenshot */
@@ -456,35 +639,123 @@
 
         .feature-card {
             background: var(--colors-surface-card);
-            padding: 32px;
+            padding: 28px 32px;
             border-radius: 16px;
-            transition: transform 0.3s;
+            border: 1px solid var(--colors-hairline);
+            min-height: 88px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: transform 0.3s ease, border-color 0.4s ease, box-shadow 0.4s ease;
         }
 
-        .feature-card:hover {
-            transform: translateY(-8px);
-            border-color: var(--colors-primary);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 7, 205, 0.2);
+        /* Per-card accent colours on hover */
+        .feature-card[data-accent="bullish"]:hover {
+            transform: translateY(-6px) scale(1.01);
+            border-color: rgba(51, 209, 122, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 28px rgba(51, 209, 122, 0.12);
+        }
+
+        .feature-card[data-accent="bearish"]:hover {
+            transform: translateY(-6px) scale(1.01);
+            border-color: rgba(255, 77, 77, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 28px rgba(255, 77, 77, 0.12);
+        }
+
+        .feature-card[data-accent="causal"]:hover {
+            transform: translateY(-6px) scale(1.01);
+            border-color: rgba(99, 120, 255, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 28px rgba(99, 120, 255, 0.12);
+        }
+
+        /* Title row */
+        .fc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fc-header h3 {
+            font-size: 17px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            transition: color 0.3s ease;
+        }
+
+        .feature-card[data-accent="bullish"]:hover .fc-header h3 {
+            color: #33d17a;
+        }
+
+        .feature-card[data-accent="bearish"]:hover .fc-header h3 {
+            color: #ff4d4d;
+        }
+
+        .feature-card[data-accent="causal"]:hover .fc-header h3 {
+            color: #6378ff;
+        }
+
+        /* Arrowhead */
+        .fc-arrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.35);
+            display: inline-block;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .feature-card:hover .fc-arrow {
+            transform: rotate(45deg);
+        }
+
+        .feature-card[data-accent="bullish"]:hover .fc-arrow {
+            color: #33d17a;
+        }
+
+        .feature-card[data-accent="bearish"]:hover .fc-arrow {
+            color: #ff4d4d;
+        }
+
+        .feature-card[data-accent="causal"]:hover .fc-arrow {
+            color: #6378ff;
+        }
+
+        /* Description — hidden at rest, expands on hover */
+        .fc-desc {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            margin-top: 0;
+            color: var(--colors-body);
+            font-size: 14px;
+            line-height: 1.6;
+            transition:
+                max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease,
+                margin-top 0.3s ease;
+        }
+
+        .feature-card:hover .fc-desc {
+            max-height: 120px;
+            opacity: 1;
+            margin-top: 14px;
+        }
+
+        .stat-card {
+            background: var(--colors-surface-card);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--colors-hairline);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .stat-card:hover {
-            border-color: var(--colors-primary);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 7, 205, 0.2);
+            transform: translateY(-4px);
+            border-color: rgba(0, 7, 205, 0.5);
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 25px rgba(0, 7, 205, 0.12);
         }
 
-        .feature-icon {
-            font-size: 32px;
-            margin-bottom: 16px;
-        }
-
-        .feature-card h3 {
-            margin-bottom: 12px;
-        }
-
-        .feature-card p {
-            color: var(--colors-body);
-            font-size: 15px;
-        }
 
         @keyframes pulse-live {
             0% {
@@ -629,6 +900,11 @@
 </head>
 
 <body>
+
+    <!-- Phase 1: Animated background orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
 
     <nav id="navbar">
         <div class="logo">
@@ -790,21 +1066,29 @@
     <section>
         <div class="container">
             <div class="feature-grid">
-                <div class="feature-card reveal">
-                    <div class="feature-icon">📈</div>
-                    <h3>Bullish Signals</h3>
-                    <p>Identify positive catalysts before they're priced in, with confidence scoring and AI reasoning.
-                    </p>
+                <div class="feature-card reveal" data-accent="bullish">
+                    <div class="fc-header">
+                        <h3>Bullish Signals</h3>
+                        <span class="fc-arrow">&rarr;</span>
+                    </div>
+                    <p class="fc-desc">Identify positive catalysts before they're priced in, with confidence scoring and
+                        AI reasoning.</p>
                 </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">📉</div>
-                    <h3>Bearish Signals</h3>
-                    <p>Spot headwinds from supply chain disruptions, litigation, and macro shifts across sectors.</p>
+                <div class="feature-card reveal" data-accent="bearish">
+                    <div class="fc-header">
+                        <h3>Bearish Signals</h3>
+                        <span class="fc-arrow">&rarr;</span>
+                    </div>
+                    <p class="fc-desc">Spot headwinds from supply chain disruptions, litigation, and macro shifts across
+                        sectors.</p>
                 </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🔗</div>
-                    <h3>Causal Topology</h3>
-                    <p>Visualize the ripple effect of news through complex company relationships and dependencies.</p>
+                <div class="feature-card reveal" data-accent="causal">
+                    <div class="fc-header">
+                        <h3>Causal Topology</h3>
+                        <span class="fc-arrow">&rarr;</span>
+                    </div>
+                    <p class="fc-desc">Visualize the ripple effect of news through complex company relationships and
+                        dependencies.</p>
                 </div>
             </div>
         </div>
@@ -938,25 +1222,51 @@
             }
         }, 30);
 
-        // Pipeline Anim
+        let pipelineAnimStarted = false;
         function startPipelineAnim() {
+            if (pipelineAnimStarted) return;
+            pipelineAnimStarted = true;
+
             let step = 1;
             const dot = document.querySelector('.pipeline-dot');
-            setInterval(() => {
+            const container = document.querySelector('.pipeline-container');
+
+            dot.style.opacity = '1';
+
+            function updateStep() {
                 document.querySelectorAll('.pipeline-step').forEach(s => s.classList.remove('active'));
                 const currentStep = document.getElementById('step' + step);
+                if (!currentStep) return;
+
                 currentStep.classList.add('active');
 
                 // Move dot to center of active step
                 const rect = currentStep.getBoundingClientRect();
-                const containerRect = document.querySelector('.pipeline-container').getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
                 const leftPos = rect.left - containerRect.left + (rect.width / 2);
-                dot.style.left = leftPos + 'px';
-                dot.style.transition = 'left 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
 
+                dot.style.left = leftPos + 'px';
                 step = (step % 4) + 1;
-            }, 2000);
+            }
+
+            // Initial call
+            updateStep();
+
+            // Cycle through steps
+            setInterval(updateStep, 2500);
         }
+
+        // ─── Phase 2: Card spotlight mouse tracker ───
+        const cards = document.querySelectorAll('.stat-card, .feature-card');
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                card.style.setProperty('--mouse-x', x + '%');
+                card.style.setProperty('--mouse-y', y + '%');
+            });
+        });
     </script>
 </body>
 
