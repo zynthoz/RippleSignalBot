@@ -438,6 +438,15 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "  \"reasoning\": \"2-4 sentence causal explanation from event to market impact\"\n"
             "}\n\n"
 
+            "## TONE FOR NODE AND PANEL COPY\n"
+            "- Write for a smart casual trader first: clear, direct, and easy to scan.\n"
+            "- Keep the technical edge, but lead with the plain-English market meaning before the deeper mechanism.\n"
+            "- Prefer concrete business language over jargon when both say the same thing. Example: say 'margins get squeezed' instead of 'operating leverage compresses' unless the nuance matters.\n"
+            "- When a technical term is useful, include it alongside a simpler explanation in the same sentence.\n"
+            "- Avoid generic analyst phrasing like 'positive sentiment' or 'material implications' unless the article truly calls for it.\n"
+            "- Make each node/panel sentence specific to the ticker or market segment, not a reusable template.\n"
+            "- Keep it concise, but do not flatten the causal chain or remove important details.\n\n"
+
             "## TICKER IDENTIFICATION\n"
             "Use the scratchpad to follow this chain:\n"
             "  1. What is the root cause of this event?\n"

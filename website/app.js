@@ -13,6 +13,8 @@ let newSignalIndicator;
 let currentPage = 1;
 const pageSize = 10;
 let isTopologyFullscreen = false;
+let topologyViewMode = 'topology';
+let activeTopologySignal = null;
 
 // Auth & User state
 let currentUser = null;
@@ -631,13 +633,6 @@ function renderAnalysisNode(signal) {
             </div>
         </div>
 
-        <!-- Sticky Actions -->
-        <div class="sticky bottom-0 left-0 right-0 p-4 bg-canvas-deep border-t border-hairline flex z-20">
-            <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})"
-                class="flex-1 bg-transparent border border-hairline-strong text-muted font-code text-[11px] py-2.5 hover:border-${color} hover:text-${color} hover:bg-${color}/10 transition-colors flex items-center justify-center gap-1.5 tracking-wider uppercase">
-                EXECUTE HEDGE SCRIPT
-            </button>
-        </div>
     </div>
     `;
 }
@@ -662,10 +657,8 @@ function syncTopologyFullscreenButton() {
 }
 
 function refreshTopologyLayout() {
-    const reheatBtn = document.getElementById('reheat-btn');
-    if (reheatBtn) {
-        reheatBtn.click();
-    }
+    if (!activeTopologySignal) return;
+    renderCenterGraph(activeTopologySignal);
 }
 
 function setTopologyFullscreen(enabled) {
@@ -707,6 +700,8 @@ function attachTopologyFullscreenButton() {
 }
 
 function renderCenterGraph(signal) {
+    activeTopologySignal = signal || null;
+
     if (!signal) {
         centerPanel.innerHTML = `
         <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0 w-full z-10" style="height: 40px;">
@@ -731,8 +726,12 @@ function renderCenterGraph(signal) {
     centerPanel.innerHTML = `<div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full z-10" style="height: 40px;">
             <h2 class="font-code text-[11px] uppercase tracking-widest text-muted">Catalyst Topology</h2>
             <div class="flex items-center gap-1">
-                <button id="reheat-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
-                    <span class="material-symbols-outlined text-[16px]">refresh</span>
+                <button id="topology-view-btn" class="text-muted px-2 py-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center gap-1 bg-transparent border-none" title="Impact View" aria-label="Impact View">
+                    <span class="material-symbols-outlined text-[16px]">insights</span>
+                    <span class="text-[11px] font-code tracking-widest uppercase">Impact View</span>
+                </button>
+                <button id="reheat-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Fit to Screen" aria-label="Fit to Screen">
+                    <span class="material-symbols-outlined text-[16px]">center_focus_strong</span>
                 </button>
                 <button id="topology-fullscreen-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
                     <span class="material-symbols-outlined text-[16px]">fullscreen</span>
@@ -741,29 +740,23 @@ function renderCenterGraph(signal) {
         </div>
         <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-canvas" tabindex="0">
             <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-card-elevated border border-hairline rounded-lg p-4 shadow-xl shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
-            
-            <div class="absolute top-4 left-4 z-40 group">
-                <div class="bg-surface-card-elevated/80 backdrop-blur border border-hairline px-3 py-1.5 rounded-full text-muted text-xs flex items-center gap-2 cursor-help shadow-md">
-                    <span class="material-symbols-outlined text-[14px]">info</span> Legend
-                </div>
-                <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[160px]">
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#0ea5e9;" class="mr-2 text-[14px]">●</span> Root Cause</span>
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#fde047;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#a855f7;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#00ff9d;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff4d4d;" class="mr-2 text-[14px]">●</span> Headwind</span>
-                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#f97316;" class="mr-2 text-[16px]">◇</span> Risk</span>
-                </div>
-            </div>
-
+            ${renderTopologyLegend()}
+            ${topologyViewMode === 'impact' ? '' : `
             <div id="d3-caption" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface-card/60 backdrop-blur-xl text-body-strong px-6 py-3 rounded-full border border-hairline text-sm z-40 pointer-events-none shadow-lg shadow-black/50 leading-relaxed whitespace-nowrap">
                 <strong class="font-bold text-primary tracking-widest text-[11px] mr-2">ROOT CAUSE:</strong> <span class="opacity-90">${escapeHtml(topology.root)}</span>
-            </div>
+            </div>`}
         </div>`;
 
+    attachTopologyViewButton();
     attachTopologyFullscreenButton();
 
-    setTimeout(() => { initD3Graph(signal, topology); }, 0);
+    setTimeout(() => {
+        if (topologyViewMode === 'impact') {
+            initImpactGraph(signal, topology);
+        } else {
+            initD3Graph(signal, topology);
+        }
+    }, 0);
 }
 
 // Concise label extractor: pulls first N meaningful words from a sentence
@@ -774,6 +767,155 @@ function shortLabel(text, maxWords = 4) {
     const words = cleaned.split(/\s+/).filter(Boolean);
     if (words.length <= maxWords) return cleaned;
     return words.slice(0, maxWords).join(' ');
+}
+
+function compactImpactLabel(text, maxWords = 7) {
+    if (!text) return '';
+    let cleaned = String(text)
+        .replace(/^(what\s+breaks|what\s+gets\s+created|mechanism\s*[:.-]\s*)/i, '')
+        .replace(/\b(the|a|an|this|that)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return cleaned;
+    return words.slice(0, maxWords).join(' ');
+}
+
+function compactRiskLabel(text, maxWords = 4) {
+    if (!text) return '';
+
+    let cleaned = String(text)
+        .replace(/^(thesis\s*risk\s*[:.-]\s*|risk\s*[:.-]\s*)/i, '')
+        .replace(/\b(could|may|might|can|will|would|likely|potentially|possibly|potential)\b/gi, '')
+        .replace(/\b(the|a|an)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const clause = cleaned.split(/(?:;|:|—|–|\.|\(|\)|,|\bdue to\b|\bbecause\b|\bif\b|\bwhen\b)/i)[0].trim();
+    const words = clause.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords && clause.length <= 24) return clause;
+
+    const compact = words.slice(0, maxWords).join(' ');
+    if (compact.length <= 24) return compact;
+
+    return words.slice(0, Math.max(2, maxWords - 1)).join(' ');
+}
+
+function formatSignedPercent(value) {
+    const number = Number.parseFloat(value);
+    if (Number.isNaN(number)) return 'N/A';
+    const prefix = number > 0 ? '+' : '';
+    return `${prefix}${number.toFixed(1)}%`;
+}
+
+function getConvictionLevel(value) {
+    const normalized = String(value || 'medium').toLowerCase();
+    if (normalized.includes('high')) return 'high';
+    if (normalized.includes('low')) return 'low';
+    return 'medium';
+}
+
+function getConvictionGlyph(value) {
+    const level = getConvictionLevel(value);
+    if (level === 'high') return '●';
+    if (level === 'low') return '○';
+    return '◐';
+}
+
+function getTickerPerformanceRecord(signal, ticker) {
+    let perfData = [];
+    if (signal?.performance) {
+        if (typeof signal.performance === 'string') {
+            try { perfData = JSON.parse(signal.performance); } catch (e) {}
+        } else if (Array.isArray(signal.performance)) {
+            perfData = signal.performance;
+        }
+    }
+
+    const matches = perfData
+        .filter((item) => item && String(item.ticker || '').toUpperCase() === String(ticker || '').toUpperCase())
+        .sort((a, b) => {
+            const order = { '1month': 3, '1week': 2, '24hr': 1 };
+            return (order[b.check_interval] || 0) - (order[a.check_interval] || 0);
+        });
+
+    if (!matches.length) return null;
+    const selected = matches[0];
+    return {
+        checkInterval: String(selected.check_interval || 'since publish'),
+        returnPct: Number.parseFloat(selected.return_pct || 0),
+        label: formatSignedPercent(selected.return_pct),
+    };
+}
+
+function renderTopologyLegend() {
+    if (topologyViewMode === 'impact') {
+        return `
+            <div class="absolute top-4 left-4 z-40 group">
+                <div class="bg-surface-card-elevated/80 backdrop-blur border border-hairline px-3 py-1.5 rounded-full text-muted text-xs flex items-center gap-2 cursor-help shadow-md">
+                    <span class="material-symbols-outlined text-[14px]">info</span> Legend
+                </div>
+                <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[220px]">
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#0ea5e9;" class="mr-2 text-[14px]">●</span> Root cause</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#8d99ae;" class="mr-2 text-[14px]">◆</span> Mechanism</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#00ff9d;" class="mr-2 text-[14px]">●</span> Winner</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff4d4d;" class="mr-2 text-[14px]">●</span> Loser</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span class="mr-2 text-[14px]">●</span> High conviction</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span class="mr-2 text-[14px]">◐</span> Medium conviction</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span class="mr-2 text-[14px]">○</span> Low conviction</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span class="mr-2 text-[10px] bg-surface-card-elevated border border-hairline px-1.5 py-0.5 rounded-sm">+2.4%</span> Performance badge</span>
+                </div>
+            </div>`;
+    }
+
+    return `
+        <div class="absolute top-4 left-4 z-40 group">
+            <div class="bg-surface-card-elevated/80 backdrop-blur border border-hairline px-3 py-1.5 rounded-full text-muted text-xs flex items-center gap-2 cursor-help shadow-md">
+                <span class="material-symbols-outlined text-[14px]">info</span> Legend
+            </div>
+            <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[160px]">
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#0ea5e9;" class="mr-2 text-[14px]">●</span> Root Cause</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#fde047;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#a855f7;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#00ff9d;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff4d4d;" class="mr-2 text-[14px]">●</span> Headwind</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#f97316;" class="mr-2 text-[16px]">◇</span> Risk</span>
+            </div>
+        </div>`;
+}
+
+function syncTopologyViewButton() {
+    const btn = document.getElementById('topology-view-btn');
+    if (!btn) return;
+
+    const icon = topologyViewMode === 'impact' ? 'account_tree' : 'insights';
+    const label = topologyViewMode === 'impact' ? 'Topology View' : 'Impact View';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.classList.toggle('bg-primary/10', topologyViewMode === 'impact');
+    btn.classList.toggle('text-primary', topologyViewMode === 'impact');
+    btn.classList.toggle('border', topologyViewMode === 'impact');
+    btn.classList.toggle('border-primary/30', topologyViewMode === 'impact');
+    btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">${icon}</span><span class="text-[11px] font-code tracking-widest uppercase">${label}</span>`;
+}
+
+function setTopologyViewMode(mode) {
+    topologyViewMode = mode === 'impact' ? 'impact' : 'topology';
+    syncTopologyViewButton();
+    refreshTopologyLayout();
+}
+
+function attachTopologyViewButton() {
+    const btn = document.getElementById('topology-view-btn');
+    if (!btn) return;
+
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        setTopologyViewMode(topologyViewMode === 'impact' ? 'topology' : 'impact');
+    };
+
+    syncTopologyViewButton();
 }
 
 function normalizeTickerProfiles(value) {
@@ -906,7 +1048,7 @@ function initD3Graph(signal, topology) {
     risks.slice(0, 3).forEach((txt) => {
         const id = nid('risk');
         nodes.push({
-            id, label: shortLabel(txt), group: 'risk', layer: 'risk',
+            id, label: compactRiskLabel(txt), group: 'risk', layer: 'risk',
             radius: 6, color: '#f97316', shape: 'diamond',
             detail: txt, directionInfo: 'INVALIDATOR', conviction: 'low'
         });
@@ -1033,11 +1175,10 @@ function initD3Graph(signal, topology) {
         .text(d => {
             if (d.group === 'ticker') return d.ticker || d.label;
             if (d.group === 'root') return '';
+            if (d.group === 'risk') return d.label;
             return truncate(d.label, 28);
         })
-        .attr("dx", d => d.group === 'ticker' ? 0 : d.radius + 5)
         .attr("dy", 4)
-        .attr("text-anchor", d => d.group === 'ticker' ? "middle" : "start")
         .attr("fill", d => {
             if (d.group === 'root') return '#0ea5e9';
             if (d.group === 'risk') return '#ff4d4d';
@@ -1046,15 +1187,54 @@ function initD3Graph(signal, topology) {
         })
         .attr("font-size", d => {
             if (d.group === 'ticker') return "11px"; // Fixed small size for tickers
+            if (d.group === 'risk') return "11px";
             return 13 / initialTransform.k + "px"; // Responsive for descriptions
         })
         .attr("font-weight", d => d.group === 'ticker' ? "600" : "400")
         .attr("font-family", "JetBrains Mono, monospace").style("pointer-events", "none")
         .attr("opacity", d => (d.group === 'ticker') ? 1 : 0);
 
+    function positionTopologyNodeLabels() {
+        const labelPadding = 12;
+        const edgePadding = 28;
+
+        nodeLabel.each(function(d) {
+            const selection = d3.select(this);
+
+            if (d.group === 'ticker' || d.group === 'root') {
+                selection.attr('dx', 0).attr('text-anchor', 'middle');
+                return;
+            }
+
+            const textWidth = this.getComputedTextLength ? this.getComputedTextLength() : String(d.label || '').length * 7;
+            const rightOverflow = d.x + d.radius + labelPadding + textWidth > width - edgePadding;
+            const leftOverflow = d.x - d.radius - labelPadding - textWidth < edgePadding;
+            const flipLeft = rightOverflow && !leftOverflow;
+
+            selection
+                .attr('dx', flipLeft ? -(d.radius + labelPadding) : d.radius + labelPadding)
+                .attr('text-anchor', flipLeft ? 'end' : 'start');
+        });
+    }
+
     // Tooltip & interaction
     const tooltip = d3.select("#d3-tooltip");
     let pinnedNode = null;
+
+    function positionTopologyTooltip(event) {
+        if (isTopologyFullscreen) {
+            const x = Math.min(window.innerWidth - 340, Math.max(16, event.clientX + 16));
+            const y = Math.max(16, event.clientY - 20);
+            tooltip.style('left', `${x}px`).style('top', `${y}px`).style('right', 'auto').style('bottom', 'auto');
+            return;
+        }
+
+        tooltip
+            .style('left', 'auto')
+            .style('right', '16px')
+            .style('top', '16px')
+            .style('bottom', 'auto');
+    }
 
     function focusNode(d) {
         const connected = new Set([d.id]);
@@ -1087,7 +1267,7 @@ function initD3Graph(signal, topology) {
         linkLabel.transition().duration(200).attr("opacity", 0);
     }
 
-    function showTooltip(d) {
+    function showTooltip(d, event) {
         let groupLabel = { root: 'ROOT CAUSE', first_order: 'DIRECT EFFECT', second_order: 'RIPPLE EFFECT', ticker: 'TICKER', risk: 'THESIS RISK' }[d.group] || d.group;
         if (d.group === 'ticker' && d.companyType) {
             groupLabel = d.companyType.toUpperCase();
@@ -1123,15 +1303,23 @@ function initD3Graph(signal, topology) {
         content += `<div class="text-[13px] font-body-compact text-body-strong leading-relaxed opacity-90">${escapeHtml(d.detail)}</div>`;
 
         tooltip.html(content);
+        positionTopologyTooltip(event || { clientX: 16, clientY: 16 });
     }
 
     function hideTooltip() { tooltip.transition().duration(200).style("opacity", 0); }
 
-    node.on("mouseover", (event, d) => { if (pinnedNode && pinnedNode.id !== d.id) return; focusNode(d); if (!pinnedNode) showTooltip(d); })
+    node.on("mouseover", (event, d) => { if (pinnedNode && pinnedNode.id !== d.id) return; focusNode(d); if (!pinnedNode) showTooltip(d, event); })
+        .on("mousemove", (event) => { positionTopologyTooltip(event); })
         .on("mouseout", () => { if (pinnedNode) return; resetFocus(); hideTooltip(); })
-        .on("click", (event, d) => { event.stopPropagation(); pinnedNode = d; focusNode(d); showTooltip(d); });
+        .on("click", (event, d) => { event.stopPropagation(); pinnedNode = d; focusNode(d); showTooltip(d, event); });
 
-    document.getElementById('reheat-btn').addEventListener('click', (e) => { e.stopPropagation(); simulation.alpha(1).restart(); });
+    const fitBtn = document.getElementById('reheat-btn');
+    if (fitBtn) {
+        fitBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            refreshTopologyLayout();
+        });
+    }
 
     // === Zoom Behavior ===
     const zoom = d3.zoom().scaleExtent([0.2, 4]).on("zoom", (event) => {
@@ -1168,12 +1356,14 @@ function initD3Graph(signal, topology) {
 
     // Set initial static positions immediately
     constrainNodes();
+    positionTopologyNodeLabels();
     link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
     linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
     node.attr("transform", d => `translate(${d.x},${d.y})`);
 
     simulation.on("tick", () => {
         constrainNodes();
+        positionTopologyNodeLabels();
         link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
         linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
         node.attr("transform", d => `translate(${d.x},${d.y})`);
@@ -1187,6 +1377,7 @@ function initD3Graph(signal, topology) {
         for (let entry of entries) {
             const nw = entry.contentRect.width, nh = entry.contentRect.height;
             svg.attr("width", nw).attr("height", nh);
+            positionTopologyNodeLabels();
             simulation.force("layer", forceLayer(0.12));
             simulation.alpha(0.3).restart();
         }
@@ -1194,8 +1385,750 @@ function initD3Graph(signal, topology) {
     resizeObserver.observe(container);
 }
 
+function initImpactGraph(signal, topology) {
+    const container = document.getElementById('d3-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const cx = width / 2;
+
+    const rootY = Math.max(90, height * 0.14);
+    const mechanismY = Math.max(240, height * 0.42);
+    const tickerCenterY = Math.max(mechanismY + 140, Math.min(height - 120, height * 0.75));
+    const leftX = Math.max(180, width * 0.28);
+    const rightX = Math.min(width - 180, width * 0.72);
+
+    const rootLabel = compactImpactLabel(signal.root_cause || topology.root || 'Market catalyst', 6);
+    const firstOrder = normalizeTextList(signal.first_order_effects).filter(Boolean);
+    const secondOrder = normalizeTextList(signal.second_order_effects).filter(Boolean);
+    const mechanismCandidates = [...firstOrder, ...secondOrder].filter(Boolean);
+    const mechanismLabels = [];
+    for (const candidate of mechanismCandidates) {
+        const label = compactImpactLabel(candidate, 5);
+        if (label && !mechanismLabels.includes(label)) {
+            mechanismLabels.push(label);
+        }
+        if (mechanismLabels.length >= 2) break;
+    }
+    if (mechanismLabels.length === 0) {
+        mechanismLabels.push(compactImpactLabel(signal.market_consensus_divergence || topology.root || 'Immediate market pressure', 5));
+    }
+    if (mechanismLabels.length === 1) {
+        mechanismLabels.push(compactImpactLabel(signal.second_order_effects?.[0] || signal.market_consensus_divergence || 'Next market reaction', 5));
+    }
+
+    const positiveSet = new Set(normalizeTextList(signal.positively_affected).map((s) => s.toUpperCase()));
+    const negativeSet = new Set(normalizeTextList(signal.negatively_affected).map((s) => s.toUpperCase()));
+    const allTickers = normalizeTickerList(signal.tickers);
+    const rawTickerList = parseMaybeJson(signal.tickers, []);
+    const tickerProfiles = normalizeTickerProfiles(signal.ticker_profiles);
+    const textMeasureCanvas = document.createElement('canvas');
+    const textMeasureContext = textMeasureCanvas.getContext('2d');
+
+    function measureTextWidth(text, fontSize, fontWeight = 400) {
+        if (!textMeasureContext) return String(text || '').length * fontSize * 0.55;
+        textMeasureContext.font = `${fontWeight} ${fontSize}px JetBrains Mono, monospace`;
+        return textMeasureContext.measureText(String(text || '')).width;
+    }
+
+    function wrapTextLines(text, maxWidth, fontSize, fontWeight = 400, maxLines = 3) {
+        const content = String(text || '').trim();
+        if (!content) return [];
+
+        const words = content.split(/\s+/).filter(Boolean);
+        if (words.length === 0) return [];
+
+        const lines = [];
+        let currentLine = '';
+
+        words.forEach((word) => {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            if (measureTextWidth(testLine, fontSize, fontWeight) <= maxWidth) {
+                currentLine = testLine;
+                return;
+            }
+
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        });
+
+        if (currentLine) lines.push(currentLine);
+
+        while (lines.length > maxLines) {
+            const spill = lines.pop();
+            lines[lines.length - 1] = `${lines[lines.length - 1]} ${spill}`.trim();
+        }
+
+        return lines;
+    }
+
+    function renderWrappedLines(selection, lines, lineHeight = 1.1) {
+        selection.text(null);
+        lines.forEach((line, index) => {
+            selection.append('tspan')
+                .attr('x', 0)
+                .attr('dy', index === 0 ? '0' : `${lineHeight}em`)
+                .text(line);
+        });
+    }
+
+    function tickerMeta(sym) {
+        const profile = tickerProfiles.find((item) => item.symbol === sym);
+        if (profile) return profile;
+        if (!Array.isArray(rawTickerList)) return null;
+        return rawTickerList.find((item) => typeof item === 'object' && item && String(item.symbol || item.ticker || '').toUpperCase() === sym) || null;
+    }
+
+    function tickerImpact(sym) {
+        const meta = tickerMeta(sym);
+        const impact = meta ? String(meta.impact || meta.direction || '').toLowerCase() : '';
+        if (impact === 'positive' || impact === 'bullish' || positiveSet.has(sym)) return 'positive';
+        if (impact === 'negative' || impact === 'bearish' || negativeSet.has(sym)) return 'negative';
+        return 'neutral';
+    }
+
+    function findGraphTickerNode(topologyData, sym) {
+        const target = String(sym || '').trim().toUpperCase();
+        if (!target || !topologyData || !Array.isArray(topologyData.branches)) return null;
+
+        const walk = (node) => {
+            if (!node || typeof node !== 'object') return null;
+            const nodeTicker = String(node.ticker || '').trim().toUpperCase();
+            const nodeLabel = String(node.label || '').trim().toUpperCase();
+            if (nodeTicker === target || nodeLabel === target) return node;
+            for (const child of (node.children || [])) {
+                const found = walk(child);
+                if (found) return found;
+            }
+            return null;
+        };
+
+        for (const branch of topologyData.branches) {
+            for (const node of (branch.nodes || [])) {
+                const found = walk(node);
+                if (found) return found;
+            }
+        }
+
+        return null;
+    }
+
+    function describeCompanyType(rawType) {
+        const value = String(rawType || '').trim();
+        if (!value) return 'company';
+
+        const lower = value.toLowerCase();
+        if (lower.includes('software') || lower.includes('saas') || lower.includes('cloud')) return 'software platform';
+        if (lower.includes('semiconductor') || lower.includes('chip')) return 'chip supplier';
+        if (lower.includes('retail') || lower.includes('consumer')) return 'consumer business';
+        if (lower.includes('bank') || lower.includes('financial')) return 'financial business';
+        if (lower.includes('health') || lower.includes('biotech') || lower.includes('pharma')) return 'healthcare name';
+        if (lower.includes('industrial') || lower.includes('manufacturing')) return 'industrial operator';
+        if (lower.includes('media') || lower.includes('advertising')) return 'media business';
+        return value;
+    }
+
+    function friendlyImpactText(sym, direction, why, companyType, mechanismText) {
+        const mechanism = compactImpactLabel(mechanismText || why || '', 8);
+        const companyPhrase = describeCompanyType(companyType);
+
+        if (direction === 'positive') {
+            return mechanism
+                ? `As a ${companyPhrase}, ${sym} can benefit because ${mechanism.toLowerCase()} tends to support demand, pricing, or margins.`
+                : `As a ${companyPhrase}, ${sym} can benefit from this setup.`;
+        }
+
+        if (direction === 'negative') {
+            return mechanism
+                ? `As a ${companyPhrase}, ${sym} can get pressured because ${mechanism.toLowerCase()} tends to hurt demand, pricing, or margins.`
+                : `As a ${companyPhrase}, ${sym} can get pressured by this setup.`;
+        }
+
+        return mechanism
+            ? `${sym} is exposed because ${mechanism.toLowerCase()} can spill through the same industry chain.`
+            : `${sym} is tied to the same event.`;
+    }
+
+    function convictionSpec(level) {
+        const normalized = getConvictionLevel(level);
+        if (normalized === 'high') return { width: 3, dash: false, glyph: '●', alpha: 1 };
+        if (normalized === 'low') return { width: 1, dash: true, glyph: '○', alpha: 0.85 };
+        return { width: 2, dash: false, glyph: '◐', alpha: 0.95 };
+    }
+
+    function buildMechanismCard(label, detail, x) {
+        const titleLines = wrapTextLines(label, 210, 12, 500, 2);
+        const titleWidth = Math.max(...titleLines.map((line) => measureTextWidth(line, 12, 500)), 0);
+        const width = Math.max(210, Math.min(300, Math.ceil(titleWidth + 44)));
+        const height = Math.max(84, 70 + Math.max(0, titleLines.length - 1) * 14);
+        return {
+            id: null,
+            kind: 'mechanism',
+            label,
+            detail,
+            x,
+            y: mechanismY,
+            radius: 0,
+            width,
+            height,
+            color: '#8d99ae',
+            fill: '#131923',
+            stroke: '#8d99ae',
+            titleLines,
+        };
+    }
+
+    const mechanismNodes = mechanismLabels.slice(0, 2).map((label, index) => {
+        const x = index === 0 ? cx - Math.min(240, width * 0.2) : cx + Math.min(240, width * 0.2);
+        return {
+            ...buildMechanismCard(label, mechanismCandidates[index] || label, x),
+            id: `mech_${index}`,
+        };
+    });
+
+    const tickerNodes = allTickers.map((sym) => {
+        const meta = tickerMeta(sym);
+        const direction = tickerImpact(sym);
+        const conviction = getConvictionLevel(meta ? meta.conviction || 'medium' : 'medium');
+        const perf = getTickerPerformanceRecord(signal, sym);
+        const company = compactImpactLabel(String(meta?.company_name || meta?.name || sym).trim(), 4) || sym;
+        const companyType = String(meta?.business_type || meta?.industry || meta?.sector || meta?.quote_type || '').trim();
+        const graphNode = findGraphTickerNode(topology, sym);
+        const modelWhy = compactImpactLabel(String(graphNode?.why_it_matters || graphNode?.relationship || '').trim(), 16);
+        const fallbackReason = friendlyImpactText(sym, direction, meta ? meta.why_it_matters : '', companyType, mechanismLabels[direction === 'negative' ? 0 : 1] || mechanismLabels[0]);
+        const reason = modelWhy || fallbackReason;
+        const badgeWidth = 78;
+        const badgeMargin = 14;
+        const titleWidth = measureTextWidth(sym, 19, 700);
+        const companyLines = wrapTextLines(company, 176, 8, 400, 2);
+        const reasonLines = wrapTextLines(reason, 176, 8, 400, 3);
+        const measuredWidth = Math.max(
+            titleWidth,
+            badgeWidth,
+            ...companyLines.map((line) => measureTextWidth(line, 8, 400)),
+            ...reasonLines.map((line) => measureTextWidth(line, 8, 400))
+        );
+        const width = Math.max(212, Math.min(290, Math.ceil(measuredWidth + 44)));
+        const height = Math.max(132, 84 + (companyLines.length * 10) + (reasonLines.length * 10) + 18);
+        return {
+            id: `ticker_${sym}`,
+            kind: 'ticker',
+            ticker: sym,
+            companyName: company,
+            companyType,
+            reason,
+            modelReason: modelWhy,
+            direction,
+            conviction,
+            performance: perf,
+            label: sym,
+            detail: reason,
+            width,
+            height,
+            badgeWidth,
+            badgeMargin,
+            companyLines,
+            reasonLines,
+            color: direction === 'positive' ? '#00ff9d' : direction === 'negative' ? '#ff4d4d' : '#8d99ae',
+            fill: direction === 'positive' ? '#0f2119' : direction === 'negative' ? '#251214' : '#111827',
+            stroke: direction === 'positive' ? '#00ff9d' : direction === 'negative' ? '#ff4d4d' : '#8d99ae',
+        };
+    });
+
+    const winners = tickerNodes.filter((node) => node.direction !== 'negative');
+    const losers = tickerNodes.filter((node) => node.direction === 'negative');
+
+    function spreadCluster(nodes, x, centerY) {
+        if (!nodes.length) return [];
+        const minY = Math.max(mechanismY + 92, height * 0.57);
+        const maxY = Math.min(height - 94, height * 0.88);
+        const cardHeight = Math.max(...nodes.map((node) => node.height || 0), 0);
+        const spacing = nodes.length > 1
+            ? Math.min(220, Math.max(cardHeight + 30, (maxY - minY) / (nodes.length - 1)))
+            : 0;
+        const totalHeight = spacing * Math.max(0, nodes.length - 1);
+        const startY = Math.min(maxY, Math.max(minY, centerY - totalHeight / 2));
+        return nodes.map((node, index) => ({ ...node, x, y: startY + (index * spacing) }));
+    }
+
+    const positionedWinners = spreadCluster(winners, leftX, tickerCenterY);
+    const positionedLosers = spreadCluster(losers, rightX, tickerCenterY);
+    const allNodes = [
+        {
+            id: 'root',
+            kind: 'root',
+            label: rootLabel,
+            detail: signal.market_consensus_divergence || topology.root || signal.root_cause || 'Initial catalyst',
+            x: cx,
+            y: rootY,
+            radius: Math.min(82, Math.max(64, Math.min(width, height) * 0.13)),
+            color: '#0ea5e9',
+            fill: '#0c2232',
+            stroke: '#0ea5e9',
+        },
+        ...mechanismNodes,
+        ...positionedWinners,
+        ...positionedLosers,
+    ];
+
+    const nodeById = new Map(allNodes.map((node) => [node.id, node]));
+    const links = [];
+
+    mechanismNodes.forEach((mechanism, index) => {
+        links.push({
+            id: `root-${mechanism.id}`,
+            source: nodeById.get('root'),
+            target: mechanism,
+            color: '#8d99ae',
+            reason: index === 0
+                ? `This event first changes how the market sees the business.`
+                : `This event also creates a second market reaction.`,
+            width: 3,
+            dash: false,
+            bias: mechanism.x < cx ? -1 : 1,
+        });
+    });
+
+    const winnerSource = mechanismNodes[1] || mechanismNodes[0];
+    const loserSource = mechanismNodes[0] || mechanismNodes[1];
+
+    [...positionedWinners, ...positionedLosers].forEach((node) => {
+        const source = node.direction === 'negative' ? loserSource : winnerSource;
+        const style = convictionSpec(node.conviction);
+        links.push({
+            id: `${source.id}-${node.id}`,
+            source,
+            target: node,
+            color: node.direction === 'negative' ? '#ff4d4d' : '#00ff9d',
+            reason: node.direction === 'negative'
+                ? `This company is pressured because ${compactImpactLabel(source.detail || source.label, 10).toLowerCase()} hits its business model.`
+                : `This company benefits because ${compactImpactLabel(source.detail || source.label, 10).toLowerCase()} improves its business model.`,
+            width: style.width,
+            dash: style.dash,
+            bias: node.direction === 'negative' ? 1 : -1,
+        });
+    });
+
+    d3.select('#d3-container').select('svg').remove();
+
+    const svg = d3.select('#d3-container').append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    const g = svg.append('g');
+    const defs = svg.append('defs');
+
+    defs.append('style').text(`
+        @keyframes impactRootPulse {
+            0%, 100% { transform: scale(1); opacity: 0.96; }
+            50% { transform: scale(1.03); opacity: 1; }
+        }
+        .impact-root-pulse {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: impactRootPulse 4s ease-in-out infinite;
+        }
+        text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
+        }
+        tspan {
+            display: block;
+        }
+    `);
+
+    const glow = defs.append('filter').attr('id', 'impact-glow').attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+    glow.append('feGaussianBlur').attr('stdDeviation', '5').attr('result', 'blur');
+    glow.append('feMerge').selectAll('feMergeNode').data(['blur', 'SourceGraphic']).enter().append('feMergeNode').attr('in', d => d);
+
+    [
+        ['impact-arr-neutral', '#8d99ae'],
+        ['impact-arr-positive', '#00ff9d'],
+        ['impact-arr-negative', '#ff4d4d'],
+    ].forEach(([id, color]) => {
+        defs.append('marker')
+            .attr('id', id)
+            .attr('viewBox', '0 -4 8 8')
+            .attr('refX', 18)
+            .attr('refY', 0)
+            .attr('markerWidth', 5)
+            .attr('markerHeight', 5)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L8,0L0,4')
+            .attr('fill', color)
+            .attr('opacity', 0.75);
+    });
+
+    const zoom = d3.zoom().scaleExtent([0.4, 2.5]).on('zoom', (event) => {
+        g.attr('transform', event.transform);
+    });
+
+    svg.call(zoom);
+
+    const linkLayer = g.append('g').attr('class', 'impact-links');
+    const nodeLayer = g.append('g').attr('class', 'impact-nodes');
+    const tooltip = d3.select('#d3-tooltip');
+    let pinnedNode = null;
+    let node;
+
+    function curvePath(link) {
+        const source = typeof link.source === 'object' ? link.source : nodeById.get(link.source);
+        const target = typeof link.target === 'object' ? link.target : nodeById.get(link.target);
+        if (!source || !target) return '';
+        const bias = link.bias || (target.x < source.x ? -1 : 1);
+        const dx = target.x - source.x;
+        const dy = target.y - source.y;
+        const curveX = Math.min(160, Math.abs(dx) * 0.35);
+        const curveY = Math.min(90, Math.abs(dy) * 0.25);
+        const c1x = source.x + (dx * 0.28) + (bias * curveX);
+        const c1y = source.y + (dy * 0.25) - curveY;
+        const c2x = target.x - (dx * 0.28) + (bias * curveX * 0.6);
+        const c2y = target.y - (dy * 0.22) + curveY;
+        return `M ${source.x} ${source.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${target.x} ${target.y}`;
+    }
+
+    const link = linkLayer.selectAll('path').data(links).enter().append('path')
+        .attr('fill', 'none')
+        .attr('stroke', d => d.color)
+        .attr('stroke-width', d => d.width)
+        .attr('stroke-dasharray', d => d.dash ? '6,4' : 'none')
+        .attr('stroke-linecap', 'round')
+        .attr('opacity', d => d.dash ? 0.55 : 0.8)
+        .attr('marker-end', d => {
+            if (d.color === '#00ff9d') return 'url(#impact-arr-positive)';
+            if (d.color === '#ff4d4d') return 'url(#impact-arr-negative)';
+            return 'url(#impact-arr-neutral)';
+        })
+        .attr('d', curvePath);
+
+    function positionImpactTooltip(event) {
+        if (isTopologyFullscreen) {
+            const x = Math.min(window.innerWidth - 340, Math.max(16, event.clientX + 16));
+            const y = Math.max(16, event.clientY - 20);
+            tooltip.style('left', `${x}px`).style('top', `${y}px`).style('right', 'auto').style('bottom', 'auto');
+            return;
+        }
+
+        tooltip
+            .style('left', 'auto')
+            .style('right', '16px')
+            .style('top', '16px')
+            .style('bottom', 'auto');
+    }
+
+    const linkHover = linkLayer.selectAll('path.link-hover').data(links).enter().append('path')
+        .attr('class', 'link-hover')
+        .attr('fill', 'none')
+        .attr('stroke', 'transparent')
+        .attr('stroke-width', 20)
+        .attr('d', curvePath)
+        .style('pointer-events', 'stroke')
+        .on('mouseenter', (event, d) => {
+            tooltip.transition().duration(160).style('opacity', 1);
+            tooltip.html(`<div class="text-[10px] font-label-caps tracking-widest uppercase mb-2" style="color:${escapeHtml(d.color)};">Connection</div><div class="text-[13px] leading-relaxed text-body-strong">${escapeHtml(d.reason)}</div>`);
+            positionImpactTooltip(event);
+        })
+        .on('mousemove', (event) => {
+            positionImpactTooltip(event);
+        })
+        .on('mouseleave', () => {
+            if (!pinnedNode) {
+                tooltip.transition().duration(160).style('opacity', 0);
+            }
+        });
+
+    function nodeTransform(node) {
+        const scale = node.scale || 1;
+        return `translate(${node.x},${node.y}) scale(${scale})`;
+    }
+
+    function updateNodeTransforms() {
+        node.attr('transform', nodeTransform);
+    }
+
+    function clearFocus() {
+        allNodes.forEach((node) => { node.scale = 1; });
+        node.transition().duration(180).style('opacity', 1);
+        updateNodeTransforms();
+        link.transition().duration(180).style('opacity', d => d.dash ? 0.55 : 0.8);
+        link.attr('stroke-width', d => d.width);
+        tooltip.transition().duration(160).style('opacity', 0);
+    }
+
+    function focusNode(selected) {
+        const connected = new Set([selected.id]);
+        links.forEach((linkItem) => {
+            const sourceId = typeof linkItem.source === 'object' ? linkItem.source.id : linkItem.source;
+            const targetId = typeof linkItem.target === 'object' ? linkItem.target.id : linkItem.target;
+            if (sourceId === selected.id) connected.add(targetId);
+            if (targetId === selected.id) connected.add(sourceId);
+        });
+
+        allNodes.forEach((nodeItem) => {
+            nodeItem.scale = nodeItem.id === selected.id ? 1.06 : 1;
+        });
+
+        node.transition().duration(180).style('opacity', (item) => connected.has(item.id) ? 1 : 0.2);
+        link.transition().duration(180).style('opacity', (item) => {
+            const sourceId = typeof item.source === 'object' ? item.source.id : item.source;
+            const targetId = typeof item.target === 'object' ? item.target.id : item.target;
+            return (sourceId === selected.id || targetId === selected.id) ? 0.95 : 0.08;
+        });
+        updateNodeTransforms();
+        tooltip.transition().duration(160).style('opacity', 1);
+    }
+
+    node = nodeLayer.selectAll('g').data(allNodes).enter().append('g')
+        .style('cursor', 'pointer')
+        .style('transform-box', 'fill-box')
+        .style('transform-origin', 'center')
+        .attr('transform', nodeTransform);
+
+    node.each(function(nodeData) {
+        const el = d3.select(this);
+        if (nodeData.kind === 'root') {
+            el.append('circle')
+                .attr('r', nodeData.radius)
+                .attr('fill', nodeData.fill)
+                .attr('stroke', nodeData.stroke)
+                .attr('stroke-width', 2.5)
+                .attr('filter', 'url(#impact-glow)')
+                .classed('impact-root-pulse', true);
+            el.append('circle')
+                .attr('r', nodeData.radius - 10)
+                .attr('fill', 'none')
+                .attr('stroke', 'rgba(255,255,255,0.14)')
+                .attr('stroke-width', 1);
+            const rootText = el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('dy', '-0.25em')
+                .attr('fill', '#d8f0ff')
+                .attr('font-size', '13px')
+                .attr('font-weight', 700)
+                .attr('font-family', 'JetBrains Mono, monospace');
+            wrapSvgText(rootText, nodeData.label, nodeData.radius * 1.55, 2, 1.16);
+        } else if (nodeData.kind === 'mechanism') {
+            el.append('rect')
+                .attr('x', -nodeData.width / 2)
+                .attr('y', -nodeData.height / 2)
+                .attr('width', nodeData.width)
+                .attr('height', nodeData.height)
+                .attr('rx', 18)
+                .attr('fill', nodeData.fill)
+                .attr('stroke', nodeData.stroke)
+                .attr('stroke-width', 1.5)
+                .attr('opacity', 0.95);
+            const mechanismText = el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', -6)
+                .attr('fill', '#e4e7ef')
+                .attr('font-size', '12px')
+                .attr('font-weight', 500)
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .attr('x', 0);
+            renderWrappedLines(mechanismText, nodeData.titleLines || wrapTextLines(nodeData.label, nodeData.width - 30, 12, 500, 2), 1.16);
+            el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', 20)
+                .attr('fill', '#8d99ae')
+                .attr('font-size', '10px')
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .text('mechanism');
+        } else {
+            el.append('rect')
+                .attr('x', -nodeData.width / 2)
+                .attr('y', -nodeData.height / 2)
+                .attr('width', nodeData.width)
+                .attr('height', nodeData.height)
+                .attr('rx', 18)
+                .attr('fill', nodeData.fill)
+                .attr('stroke', nodeData.stroke)
+                .attr('stroke-width', 1.6)
+                .attr('opacity', 0.98);
+
+            const badgeWidth = nodeData.badgeWidth || 78;
+            const badgeHeight = 26;
+            const badgeMargin = nodeData.badgeMargin || 14;
+            const badge = el.append('g').attr('transform', `translate(${nodeData.width / 2 - badgeWidth - badgeMargin}, ${-nodeData.height / 2 + badgeMargin})`);
+            badge.append('rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', badgeWidth)
+                .attr('height', badgeHeight)
+                .attr('rx', 13)
+                .attr('fill', nodeData.direction === 'positive' ? 'rgba(0,255,157,0.12)' : nodeData.direction === 'negative' ? 'rgba(255,77,77,0.12)' : 'rgba(141,153,174,0.12)')
+                .attr('stroke', nodeData.direction === 'positive' ? '#00ff9d' : nodeData.direction === 'negative' ? '#ff4d4d' : '#8d99ae')
+                .attr('stroke-width', 1);
+            badge.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('x', badgeWidth / 2)
+                .attr('y', 10)
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', nodeData.direction === 'positive' ? '#00ff9d' : nodeData.direction === 'negative' ? '#ff4d4d' : '#c5cedd')
+                .attr('font-size', '8px')
+                .attr('font-weight', 700)
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .text(nodeData.performance ? nodeData.performance.label : 'N/A');
+            badge.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('x', badgeWidth / 2)
+                .attr('y', 18)
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', '#8d99ae')
+                .attr('font-size', '6px')
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .text('since publish');
+
+            el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', -6)
+                .attr('fill', '#f3f6fb')
+                .attr('font-size', '19px')
+                .attr('font-weight', 700)
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .text(nodeData.ticker);
+
+            const companyText = el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', 8)
+                .attr('fill', '#9fb0c8')
+                .attr('font-size', '8px')
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .attr('x', 0);
+            renderWrappedLines(companyText, nodeData.companyLines || wrapTextLines(nodeData.companyName, nodeData.width - 44, 8, 400, 2), 1.08);
+
+            const reasonText = el.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', nodeData.companyLines && nodeData.companyLines.length > 1 ? 28 : 24)
+                .attr('fill', '#d2d9e4')
+                .attr('font-size', '8px')
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .attr('x', 0);
+            renderWrappedLines(reasonText, nodeData.reasonLines || wrapTextLines(compactImpactLabel(nodeData.reason, 10), nodeData.width - 44, 8, 400, 3), 1.08);
+
+            el.append('text')
+                .attr('x', -nodeData.width / 2 + 18)
+                .attr('y', nodeData.height / 2 - 16)
+                .attr('fill', nodeData.direction === 'positive' ? '#00ff9d' : nodeData.direction === 'negative' ? '#ff4d4d' : '#8d99ae')
+                .attr('font-size', '11px')
+                .attr('font-family', 'JetBrains Mono, monospace')
+                .attr('title', `${nodeData.conviction} conviction`)
+                .text(getConvictionGlyph(nodeData.conviction));
+        }
+    });
+
+    node.on('mouseenter', (event, nodeData) => {
+        if (pinnedNode && pinnedNode.id !== nodeData.id) return;
+        if (nodeData.kind === 'ticker') {
+            nodeData.scale = 1.06;
+            updateNodeTransforms();
+        }
+        focusNode(nodeData);
+        const title = nodeData.kind === 'ticker' ? `${escapeHtml(nodeData.ticker)} · ${escapeHtml(nodeData.companyName)}` : escapeHtml(nodeData.label);
+        const body = nodeData.kind === 'ticker'
+            ? `This is a ${nodeData.direction === 'positive' ? 'winner' : nodeData.direction === 'negative' ? 'loser' : 'neutral'} because ${escapeHtml(nodeData.reason)}.`
+            : escapeHtml(nodeData.detail || nodeData.label);
+        tooltip.html(`<div class="text-[10px] font-label-caps tracking-widest uppercase mb-2" style="color:${nodeData.color};">${nodeData.kind === 'ticker' ? (nodeData.direction === 'positive' ? 'WINNER' : nodeData.direction === 'negative' ? 'LOSER' : 'TICKER') : nodeData.kind.toUpperCase()}</div><div class="font-display-ticker text-lg text-body-strong mb-1">${title}</div><div class="text-[13px] leading-relaxed text-body-strong opacity-90">${body}</div>`);
+        positionImpactTooltip(event);
+    }).on('mousemove', (event) => {
+        positionImpactTooltip(event);
+    }).on('mouseleave', (event, nodeData) => {
+        if (pinnedNode) return;
+        if (nodeData.kind === 'ticker') {
+            nodeData.scale = 1;
+            updateNodeTransforms();
+        }
+        clearFocus();
+    }).on('click', (event, nodeData) => {
+        event.stopPropagation();
+        pinnedNode = nodeData;
+        focusNode(nodeData);
+    });
+
+    svg.on('click', () => {
+        pinnedNode = null;
+        clearFocus();
+    });
+
+    function fitImpactView() {
+        svg.transition().duration(550).call(zoom.transform, d3.zoomIdentity);
+    }
+
+    const fitBtn = document.getElementById('reheat-btn');
+    if (fitBtn) {
+        fitBtn.onclick = (event) => {
+            event.stopPropagation();
+            fitImpactView();
+        };
+    }
+
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const nextWidth = entry.contentRect.width;
+            const nextHeight = entry.contentRect.height;
+            svg.attr('width', nextWidth).attr('height', nextHeight);
+        }
+    });
+    resizeObserver.observe(container);
+
+    fitImpactView();
+}
+
 function truncate(str, max) { if (!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
 
+function wrapSvgText(textElement, text, maxWidth, maxLines = 2, lineHeight = 1.1) {
+    const selection = textElement && textElement.node ? textElement : d3.select(textElement);
+    const node = selection.node();
+    if (!node) return '';
+
+    const original = String(text || '').trim();
+    selection.text('');
+    if (!original) return '';
+
+    const words = original.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+
+    const lines = [];
+    let currentLine = '';
+
+    const measureText = (value) => {
+        selection.text(value);
+        return node.getComputedTextLength();
+    };
+
+    words.forEach((word) => {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (measureText(testLine) <= maxWidth) {
+            currentLine = testLine;
+            return;
+        }
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        currentLine = word;
+    });
+
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+
+    while (lines.length > maxLines) {
+        const spill = lines.pop();
+        lines[lines.length - 1] = `${lines[lines.length - 1]} ${spill}`.trim();
+    }
+
+    selection.text(null);
+    lines.forEach((line, index) => {
+        selection.append('tspan')
+            .attr('x', 0)
+            .attr('dy', index === 0 ? '0' : `${lineHeight}em`)
+            .text(line);
+    });
+
+    return lines.join('\n');
+}
 
 // Logic Functions
 async function fetchSignals() {
