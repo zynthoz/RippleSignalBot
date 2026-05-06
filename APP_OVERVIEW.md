@@ -1,7 +1,7 @@
-# RippleSignalBot / MarketPulse AI Overview
+# RippleSignalBot / ARGUS AI Overview
 
 ## Purpose
-RippleSignalBot is a news-to-signal platform for market monitoring. It ingests business and financial news, turns articles into structured trading signals, and surfaces them in a dashboard and Telegram flow so users can quickly understand what matters and act on it.
+ARGUS AI is a news-to-signal platform for market monitoring. It ingests business and financial news, turns articles into structured trading signals, and surfaces them in a dashboard and Telegram flow so users can quickly understand what matters and act on it.
 
 The product is designed for people who want fast, contextual market intelligence without reading every article themselves. It does not execute trades; it helps users spot catalysts, understand likely market impact, and follow the signals they care about.
 

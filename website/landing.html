@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus AI | Market Intelligence Traced Instantly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --colors-primary: #0007cd;
+            --colors-primary-glow: #1a26ff;
+            --colors-canvas: #0f0f0f;
+            --colors-canvas-deep: #000000;
+            --colors-surface-card: #181818;
+            --colors-surface-card-elevated: #222222;
+            --colors-ink: #ffffff;
+            --colors-body: #a8a8a8;
+            --colors-hairline: #222222;
+            --spacing-section: 96px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--colors-canvas);
+            color: var(--colors-ink);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.5;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3 {
+            font-weight: 500;
+            letter-spacing: -0.02em;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: opacity 0.2s;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+            transition: background 0.3s, backdrop-filter 0.3s;
+        }
+
+        nav.scrolled {
+            background: rgba(15, 15, 15, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--colors-hairline);
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 18px;
+            color: var(--colors-primary);
+            letter-spacing: 0.1em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--colors-primary);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #0005a3;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            border: 1px solid var(--colors-hairline);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-outline:hover {
+            background: var(--colors-surface-card);
+        }
+
+        /* Hero */
+        .hero {
+            padding-top: 160px;
+            padding-bottom: var(--spacing-section);
+            text-align: center;
+            position: relative;
+        }
+
+        .spotlight {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(26, 38, 255, 0.15) 0%, rgba(15, 15, 15, 0) 70%);
+            pointer-events: none;
+            z-index: -1;
+            animation: pulse 8s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .badge-pill {
+            display: inline-block;
+            background: var(--colors-surface-card-elevated);
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            font-size: 72px;
+            line-height: 1.05;
+            margin-bottom: 24px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero p {
+            color: var(--colors-body);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 80px;
+        }
+
+        /* Terminal Mockup */
+        .terminal-grid {
+            background: var(--colors-canvas-deep);
+            border: 1px solid var(--colors-hairline);
+            border-radius: 16px;
+            padding: 32px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: left;
+            position: relative;
+        }
+
+        .terminal-pane {
+            background: var(--colors-surface-card);
+            border-radius: 12px;
+            padding: 20px;
+            height: 240px;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--colors-body);
+        }
+
+        .pane-header {
+            color: #666;
+            margin-bottom: 12px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Ticker Tape */
+        .ticker-wrap {
+            width: 100%;
+            overflow: hidden;
+            background: var(--colors-canvas-deep);
+            border-top: 1px solid var(--colors-hairline);
+            border-bottom: 1px solid var(--colors-hairline);
+            padding: 12px 0;
+            margin-top: 80px;
+        }
+
+        .ticker {
+            display: flex;
+            white-space: nowrap;
+            animation: ticker 30s linear infinite;
+        }
+
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .ticker-item {
+            margin-right: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ticker-symbol { font-weight: 600; color: white; }
+        .ticker-dir.up { color: #33d17a; }
+        .ticker-dir.down { color: #ff4d4d; }
+
+        /* Sections */
+        section {
+            padding: var(--spacing-section) 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-header h2 {
+            font-size: 44px;
+            margin-bottom: 16px;
+        }
+
+        .section-header p {
+            color: var(--colors-body);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Stats Card */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .stat-card {
+            background: var(--colors-surface-card);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 48px;
+            color: var(--colors-primary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: var(--colors-body);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Pipeline */
+        .pipeline-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 40px;
+            position: relative;
+        }
+
+        .pipeline-step {
+            width: 22%;
+            background: var(--colors-surface-card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--colors-hairline);
+            z-index: 2;
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        .pipeline-step.active {
+            border-color: var(--colors-primary);
+            background: #1a1a2e;
+        }
+
+        .pipeline-step h3 { font-size: 16px; margin-bottom: 8px; }
+        .pipeline-step p { font-size: 13px; color: var(--colors-body); }
+
+        .pipeline-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--colors-hairline);
+            z-index: 1;
+        }
+
+        .pipeline-dot {
+            position: absolute;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            background: var(--colors-primary);
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 10px var(--colors-primary);
+            animation: flow 4s infinite linear;
+        }
+
+        @keyframes flow {
+            0% { left: 0; }
+            100% { left: 100%; }
+        }
+
+        /* Screenshot */
+        .screenshot-box {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--colors-hairline);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            background: #000;
+            transform: translateY(40px);
+            opacity: 0;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+        }
+
+        .screenshot-box.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .screenshot-box img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--colors-surface-card);
+            padding: 32px;
+            border-radius: 16px;
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 { margin-bottom: 12px; }
+        .feature-card p { color: var(--colors-body); font-size: 15px; }
+
+        /* CTA Band */
+        .cta-band {
+            background: var(--colors-canvas);
+            text-align: center;
+            padding: var(--spacing-section) 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-band .spotlight {
+            background: radial-gradient(circle, rgba(26, 38, 255, 0.1) 0%, rgba(15, 15, 15, 0) 70%);
+        }
+
+        /* Footer */
+        footer {
+            padding: 64px 0;
+            border-top: 1px solid var(--colors-hairline);
+            background: var(--colors-canvas);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .footer-left p {
+            color: var(--colors-body);
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 40px;
+        }
+
+        .link-group h4 {
+            font-size: 14px;
+            margin-bottom: 16px;
+            color: white;
+        }
+
+        .link-group a {
+            display: block;
+            font-size: 14px;
+            color: var(--colors-body);
+            margin-bottom: 8px;
+        }
+
+        .footer-bottom {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--colors-hairline);
+            text-align: center;
+            color: var(--colors-body);
+            font-size: 12px;
+        }
+
+        /* Animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 900px) {
+            .hero h1 { font-size: 48px; }
+            .terminal-grid { grid-template-columns: 1fr; }
+            .stats-grid, .feature-grid { grid-template-columns: 1fr; }
+            .pipeline-container { flex-direction: column; gap: 24px; }
+            .pipeline-step { width: 100%; }
+            .pipeline-line { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav id="navbar">
+        <div class="logo">ARGUS AI</div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="#">Telegram</a>
+            <a href="/dashboard" class="btn-primary">Get Started</a>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div class="spotlight"></div>
+        <div class="container">
+            <div class="badge-pill">⚡ AI-Powered · Real-Time Signals</div>
+            <h1 class="reveal">Every Market Event.<br>Traced. Instantly.</h1>
+            <p class="reveal">Stop guessing. Argus AI parses global news through multi-hop causal chains to deliver high-conviction trading signals before the market reacts.</p>
+            <div class="hero-btns reveal">
+                <a href="/dashboard" class="btn-primary">Launch Dashboard</a>
+                <a href="#" class="btn-outline">Try Telegram Bot →</a>
+            </div>
+
+            <div class="terminal-grid reveal">
+                <div class="terminal-pane">
+                    <div class="pane-header"><span>SIGNAL_FEED</span><span>LIVE</span></div>
+                    <div id="typewriter1"></div>
+                </div>
+                <div class="terminal-pane">
+                    <div class="pane-header"><span>CAUSAL_TOPOLOGY</span><span>DASHBOARD</span></div>
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <svg width="120" height="120" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="4" fill="#0007cd">
+                                <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
+                                <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" />
+                            </circle>
+                            <line x1="50" y1="50" x2="20" y2="20" stroke="#222" stroke-width="1" />
+                            <line x1="50" y1="50" x2="80" y2="30" stroke="#222" stroke-width="1" />
+                            <line x1="50" y1="50" x2="70" y2="80" stroke="#222" stroke-width="1" />
+                            <circle cx="20" cy="20" r="3" fill="#333" />
+                            <circle cx="80" cy="30" r="3" fill="#333" />
+                            <circle cx="70" cy="80" r="3" fill="#333" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="terminal-pane">
+                    <div class="pane-header"><span>CONFIDENCE_ENGINE</span><span>STABLE</span></div>
+                    <div style="font-size: 64px; color: var(--colors-primary); display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <span id="counter-confidence">0</span>%
+                    </div>
+                </div>
+                <div class="terminal-pane">
+                    <div class="pane-header"><span>LOG_STREAM</span><span>ACTIVE</span></div>
+                    <div id="typewriter2" style="color: #444;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ticker-wrap">
+            <div class="ticker">
+                <!-- Repeated for seamless loop -->
+                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲ 2.4%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼ 1.1%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲ 0.5%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲ 4.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼ 0.8%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲ 1.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲ 0.9%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲ 2.4%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼ 1.1%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲ 0.5%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲ 4.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼ 0.8%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲ 1.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲ 0.9%</span></div>
+            </div>
+        </div>
+    </div>
+
+    <section>
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card reveal">
+                    <div class="stat-value" data-target="500">0</div>
+                    <div class="stat-label">Daily News Items</div>
+                </div>
+                <div class="stat-card reveal">
+                    <div class="stat-value" data-target="60">&lt;<span id="counter-sec">0</span>s</div>
+                    <div class="stat-label">Reaction Time</div>
+                </div>
+                <div class="stat-card reveal">
+                    <div class="stat-value">100%</div>
+                    <div class="stat-label">Causal Tracing</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>The Intelligence Pipeline</h2>
+                <p>Argus AI automates the full reasoning stack from raw headline to actionable signal.</p>
+            </div>
+            
+            <div class="pipeline-container reveal">
+                <div class="pipeline-line"></div>
+                <div class="pipeline-dot"></div>
+                <div class="pipeline-step" id="step1">
+                    <h3>Ingest</h3>
+                    <p>Continuous polling of top-tier business news and filings.</p>
+                </div>
+                <div class="pipeline-step" id="step2">
+                    <h3>Interpret</h3>
+                    <p>Gemini-powered reasoning maps events to industries.</p>
+                </div>
+                <div class="pipeline-step" id="step3">
+                    <h3>Trace</h3>
+                    <p>Causal chains identify primary and secondary ticker impact.</p>
+                </div>
+                <div class="pipeline-step" id="step4">
+                    <h3>Notify</h3>
+                    <p>Structured signals delivered via Dashboard and Telegram.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>Pro-Grade Dashboard</h2>
+                <p>A monolithic workspace designed for high-velocity decision making.</p>
+            </div>
+            <div class="screenshot-box reveal">
+                <img src="screen2.png" alt="Argus AI Dashboard">
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <div class="feature-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📈</div>
+                    <h3>Bullish Signals</h3>
+                    <p>Identify positive catalysts before they're priced in, with confidence scoring and AI reasoning.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📉</div>
+                    <h3>Bearish Signals</h3>
+                    <p>Spot headwinds from supply chain disruptions, litigation, and macro shifts across sectors.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Causal Topology</h3>
+                    <p>Visualize the ripple effect of news through complex company relationships and dependencies.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="cta-band">
+        <div class="spotlight"></div>
+        <div class="container reveal">
+            <h2 style="font-size: 44px; margin-bottom: 24px;">Start watching the market now.</h2>
+            <div class="hero-btns">
+                <a href="/dashboard" class="btn-primary">Launch Dashboard</a>
+                <a href="#" class="btn-outline">Telegram Bot</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <div class="logo">ARGUS AI</div>
+                    <p>Next-generation market intelligence.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="link-group">
+                        <h4>Product</h4>
+                        <a href="/dashboard">Dashboard</a>
+                        <a href="#">Telegram</a>
+                    </div>
+                    <div class="link-group">
+                        <h4>Resources</h4>
+                        <a href="#">Documentation</a>
+                        <a href="#">API</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                &copy; 2026 Argus AI. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Nav Scroll Effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Reveal on Scroll
+        const revealElements = document.querySelectorAll('.reveal');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    // Special case for counters
+                    if (entry.target.classList.contains('stat-card')) {
+                        startCounters(entry.target);
+                    }
+                    if (entry.target.classList.contains('pipeline-container')) {
+                        startPipelineAnim();
+                    }
+                    if (entry.target.classList.contains('screenshot-box')) {
+                        entry.target.classList.add('visible');
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+
+        revealElements.forEach(el => observer.observe(el));
+
+        // Typewriter Effect
+        function typeWriter(elementId, text, speed = 30) {
+            let i = 0;
+            const element = document.getElementById(elementId);
+            element.innerHTML = '';
+            function type() {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        setTimeout(() => {
+            typeWriter('typewriter1', '> BULLISH SIGNAL: NVDA\n> Confidence: 94%\n> Catalyst: Quantum Chip Breakthrough\n> Horizon: Intraday\n> Reasoning: Proprietary LLM identifies 90% reduction in training latency...');
+            typeWriter('typewriter2', '20:15:32: Ingesting NewsAPI...\n20:15:34: Deduplicating articles...\n20:15:36: LangGraph Agent: Processing causal chain...\n20:15:38: Signal generated for ticker $LMT', 20);
+        }, 1000);
+
+        // Counter Animation
+        function startCounters(card) {
+            const valEl = card.querySelector('.stat-value');
+            if (!valEl || valEl.dataset.started) return;
+            valEl.dataset.started = "true";
+
+            const target = parseInt(valEl.dataset.target);
+            if (isNaN(target)) return;
+
+            let current = 0;
+            const step = target / 50;
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    valEl.innerText = target + (valEl.id === 'counter-sec' ? '' : '+');
+                    if (valEl.id === 'counter-sec') document.getElementById('counter-sec').innerText = target;
+                    clearInterval(interval);
+                } else {
+                    valEl.innerText = Math.floor(current) + (valEl.id === 'counter-sec' ? '' : '+');
+                    if (valEl.id === 'counter-sec') document.getElementById('counter-sec').innerText = Math.floor(current);
+                }
+            }, 30);
+        }
+
+        let currentConfidence = 0;
+        const confInterval = setInterval(() => {
+            currentConfidence += 1.5;
+            if (currentConfidence >= 92.4) {
+                document.getElementById('counter-confidence').innerText = "92.4";
+                clearInterval(confInterval);
+            } else {
+                document.getElementById('counter-confidence').innerText = currentConfidence.toFixed(1);
+            }
+        }, 30);
+
+        // Pipeline Anim
+        function startPipelineAnim() {
+            let step = 1;
+            setInterval(() => {
+                document.querySelectorAll('.pipeline-step').forEach(s => s.classList.remove('active'));
+                document.getElementById('step' + step).classList.add('active');
+                step = (step % 4) + 1;
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

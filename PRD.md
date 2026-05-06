@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-MarketPulse AI is a Telegram bot that scrapes market and business news, interprets it using a LangGraph agent powered by Google Gemini, and pushes real-time investment signals directly to users. The system performs causal chain analysis — tracing a news event to the industries and stocks it affects, both directly and indirectly — and delivers signals as Telegram notifications. Built for a hackathon MVP, the system is self-hosted on a local machine and exposed publicly via ngrok.
+Argus AI is a Telegram bot that scrapes market and business news, interprets it using a LangGraph agent powered by Google Gemini, and pushes real-time investment signals directly to users. The system performs causal chain analysis — tracing a news event to the industries and stocks it affects, both directly and indirectly — and delivers signals as Telegram notifications. Built for a hackathon MVP, the system is self-hosted on a local machine and exposed publicly via ngrok.
 
 ---
 

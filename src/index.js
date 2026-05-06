@@ -654,9 +654,31 @@ async function start() {
       return;
     }
 
-    // Phase 3: Static File Serving
+    // Root route → landing page
+    if (req.method === 'GET' && pathname === '/') {
+      const landingPath = path.join(__dirname, '..', 'website', 'landing.html');
+      fs.stat(landingPath, (err, stats) => {
+        if (err || !stats.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        fs.createReadStream(landingPath).pipe(res);
+      });
+      return;
+    }
+
+    // Dashboard route → main app
+    if (req.method === 'GET' && pathname === '/dashboard') {
+      const dashPath = path.join(__dirname, '..', 'website', 'index.html');
+      fs.stat(dashPath, (err, stats) => {
+        if (err || !stats.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        fs.createReadStream(dashPath).pipe(res);
+      });
+      return;
+    }
+
+    // Phase 3: Static File Serving (assets: js, css, png, etc.)
     if (req.method === 'GET') {
-      let filePath = path.join(__dirname, '..', 'website', pathname === '/' ? 'index.html' : pathname);
+      let filePath = path.join(__dirname, '..', 'website', pathname);
       
       // Prevent directory traversal
       if (!filePath.startsWith(path.join(__dirname, '..', 'website'))) {
