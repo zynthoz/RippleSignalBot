@@ -12,6 +12,7 @@ let centerPanel;
 let newSignalIndicator;
 let currentPage = 1;
 const pageSize = 10;
+let isTopologyFullscreen = false;
 
 // Auth & User state
 let currentUser = null;
@@ -665,11 +666,70 @@ function getStyleColor(tone) {
     return '#8d99ae'; // Cool grey
 }
 
+function syncTopologyFullscreenButton() {
+    const btn = document.getElementById('topology-fullscreen-btn');
+    if (!btn) return;
+
+    const icon = isTopologyFullscreen ? 'fullscreen_exit' : 'fullscreen';
+    const title = isTopologyFullscreen ? 'Exit Full Screen' : 'Full Screen';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">${icon}</span>`;
+}
+
+function refreshTopologyLayout() {
+    const reheatBtn = document.getElementById('reheat-btn');
+    if (reheatBtn) {
+        reheatBtn.click();
+    }
+}
+
+function setTopologyFullscreen(enabled) {
+    if (!centerPanel || !signalFeedContainer || !analysisNodeContainer) return;
+
+    isTopologyFullscreen = enabled;
+
+    signalFeedContainer.style.display = enabled ? 'none' : '';
+    analysisNodeContainer.style.display = enabled ? 'none' : '';
+
+    centerPanel.style.position = enabled ? 'fixed' : '';
+    centerPanel.style.top = enabled ? '0' : '';
+    centerPanel.style.right = enabled ? '0' : '';
+    centerPanel.style.bottom = enabled ? '0' : '';
+    centerPanel.style.left = enabled ? '0' : '';
+    centerPanel.style.zIndex = enabled ? '100' : '';
+    centerPanel.style.width = enabled ? '100vw' : '';
+    centerPanel.style.height = enabled ? '100vh' : '';
+    centerPanel.style.margin = enabled ? '0' : '';
+    centerPanel.style.borderRadius = enabled ? '0' : '';
+    centerPanel.style.boxShadow = enabled ? 'none' : '';
+
+    document.body.style.overflow = enabled ? 'hidden' : '';
+
+    syncTopologyFullscreenButton();
+    setTimeout(refreshTopologyLayout, 0);
+}
+
+function attachTopologyFullscreenButton() {
+    const btn = document.getElementById('topology-fullscreen-btn');
+    if (!btn) return;
+
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        setTopologyFullscreen(!isTopologyFullscreen);
+    };
+
+    syncTopologyFullscreenButton();
+}
+
 function renderCenterGraph(signal) {
     if (!signal) {
         centerPanel.innerHTML = `
         <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0 w-full z-10" style="height: 48px;">
             <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
+            <button id="topology-fullscreen-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
+                <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+            </button>
         </div>
         <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center h-full w-full bg-canvas-deep">
             <div class="w-20 h-20 rounded-full bg-surface-card flex items-center justify-center mb-4 border border-hairline shadow-inner">
@@ -678,6 +738,7 @@ function renderCenterGraph(signal) {
             <div class="text-[14px] font-medium text-body-strong mb-1">Awaiting Catalyst</div>
             <div class="text-[12px] max-w-[250px]">Select a signal to render the topology graph and causal network.</div>
         </div>`;
+        attachTopologyFullscreenButton();
         return;
     }
 
@@ -685,9 +746,14 @@ function renderCenterGraph(signal) {
 
     centerPanel.innerHTML = `<div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full z-10" style="height: 48px;">
             <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
-            <button id="reheat-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
-                <span class="material-symbols-outlined text-[18px]">refresh</span>
-            </button>
+            <div class="flex items-center gap-1">
+                <button id="reheat-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
+                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                </button>
+                <button id="topology-fullscreen-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
+                    <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+                </button>
+            </div>
         </div>
         <div id="d3-container" class="flex-1 w-full relative z-0 overflow-hidden outline-none bg-canvas" tabindex="0">
             <div id="d3-tooltip" class="absolute pointer-events-none opacity-0 transition-opacity z-50 text-sm bg-surface-card-elevated border border-hairline rounded-lg p-4 shadow-xl shadow-black/50" style="top: 16px; right: 16px; min-width: 260px; max-width: 320px; color: var(--on-surface);"></div>
@@ -710,6 +776,8 @@ function renderCenterGraph(signal) {
                 <strong class="font-bold text-primary tracking-widest text-[11px] mr-2">ROOT CAUSE:</strong> <span class="opacity-90">${escapeHtml(topology.root)}</span>
             </div>
         </div>`;
+
+    attachTopologyFullscreenButton();
 
     setTimeout(() => { initD3Graph(signal, topology); }, 0);
 }
@@ -1371,6 +1439,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (notifPopover && !notifPopover.classList.contains('hidden') && !notifPopover.contains(e.target) && !notifTrigger.contains(e.target)) {
             notifPopover.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isTopologyFullscreen) {
+            setTopologyFullscreen(false);
         }
     });
 });
