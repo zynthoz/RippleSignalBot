@@ -6,8 +6,9 @@ import json
 import time
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
 import redis
@@ -15,6 +16,9 @@ import psycopg2
 from psycopg2.extras import Json
 from google import genai
 import threading
+
+from db_pool import initialize_pool, get_connection, return_connection, load_environment
+from ticker_cache import verify_ticker_exists, verify_tickers_exist
 from performance_tracker import track_performance
 
 
@@ -22,15 +26,10 @@ MAX_SIGNAL_AGE_HOURS = int(os.getenv('MAX_SIGNAL_AGE_HOURS', '72'))
 QUOTE_LOOKUP_TIMEOUT_SEC = float(os.getenv('QUOTE_LOOKUP_TIMEOUT_SEC', '5'))
 GEMINI_MAX_RETRIES = int(os.getenv('GEMINI_MAX_RETRIES', '4'))
 GEMINI_RETRY_BASE_SEC = float(os.getenv('GEMINI_RETRY_BASE_SEC', '1.5'))
-_TICKER_CACHE = {}
+MATURITY_THRESHOLD_HOURS = 24  # Signal is "mature" after 24 hours from publication
 
 
-def load_environment() -> None:
-    project_root = Path(__file__).resolve().parents[1]
-    load_dotenv(project_root / '.env')
-
-
-def ensure_signal_columns(conn_str: str) -> None:
+def ensure_signal_columns() -> None:
     """Add rich signal columns to older databases before the worker runs."""
     statements = [
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS time_horizon VARCHAR(50)',
@@ -69,7 +68,7 @@ def ensure_signal_columns(conn_str: str) -> None:
     conn = None
     cur = None
     try:
-        conn = psycopg2.connect(conn_str)
+        conn = get_connection()
         cur = conn.cursor()
         for statement in statements:
             cur.execute(statement)
@@ -78,7 +77,7 @@ def ensure_signal_columns(conn_str: str) -> None:
         if cur is not None:
             cur.close()
         if conn is not None:
-            conn.close()
+            return_connection(conn)
 
 
 def simple_signal_extractor(title: str, description: str) -> dict:
@@ -143,63 +142,6 @@ def classify_source_origin(article: dict) -> str:
     return 'Primary source not explicit in metadata'
 
 
-def verify_ticker_exists(symbol: str) -> bool:
-    """Verify ticker existence via live Yahoo Finance quote lookup.
-
-    This is a pragmatic MVP guard to avoid hallucinated symbols.
-    """
-    symbol = (symbol or '').strip().upper()
-    if not symbol:
-        return False
-    if symbol in _TICKER_CACHE:
-        return _TICKER_CACHE[symbol]
-
-    params = urllib.parse.urlencode({'symbols': symbol})
-    url = f'https://query1.finance.yahoo.com/v7/finance/quote?{params}'
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-
-    try:
-        with urllib.request.urlopen(req, timeout=QUOTE_LOOKUP_TIMEOUT_SEC) as resp:
-            payload = json.loads(resp.read().decode('utf-8', errors='replace'))
-        results = payload.get('quoteResponse', {}).get('result', [])
-        if not results:
-            _TICKER_CACHE[symbol] = False
-            return False
-        row = results[0]
-        quote_type = str(row.get('quoteType') or '').upper()
-        market_price = row.get('regularMarketPrice')
-        ok = quote_type in {'EQUITY', 'ETF'} and market_price is not None
-        _TICKER_CACHE[symbol] = ok
-        return ok
-    except Exception:
-        # Fallback: search endpoint usually works without auth where quote endpoint may return 401.
-        try:
-            search_params = urllib.parse.urlencode({'q': symbol})
-            search_url = f'https://query1.finance.yahoo.com/v1/finance/search?{search_params}'
-            search_req = urllib.request.Request(search_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(search_req, timeout=QUOTE_LOOKUP_TIMEOUT_SEC) as resp:
-                payload = json.loads(resp.read().decode('utf-8', errors='replace'))
-
-            quotes = payload.get('quotes', [])
-            exact = None
-            for q in quotes:
-                if str(q.get('symbol', '')).upper() == symbol:
-                    exact = q
-                    break
-
-            if not exact:
-                _TICKER_CACHE[symbol] = False
-                return False
-
-            qt = str(exact.get('quoteType', '')).upper()
-            ok = qt in {'EQUITY', 'ETF'}
-            _TICKER_CACHE[symbol] = ok
-            return ok
-        except Exception:
-            _TICKER_CACHE[symbol] = False
-            return False
-
-
 def lookup_ticker_profile(symbol: str) -> dict:
     """Return best-effort company and business metadata for a ticker symbol."""
     symbol = (symbol or '').strip().upper()
@@ -254,23 +196,6 @@ def lookup_ticker_profile(symbol: str) -> dict:
         pass
 
     return {'symbol': symbol}
-
-
-def verify_tickers_exist(tickers):
-    # Accept list of dicts or simple symbols; return list of verified symbol strings
-    unique = []
-    seen = set()
-    for t in tickers or []:
-        if isinstance(t, dict):
-            s = str(t.get('symbol', '')).upper().strip()
-        else:
-            s = str(t).upper().strip()
-        if not s or s in seen:
-            continue
-        seen.add(s)
-        if verify_ticker_exists(s):
-            unique.append(s)
-    return unique
 
 
 def normalize_confidence(parsed: dict, verified_tickers, source_attribution: str) -> int:
@@ -706,9 +631,11 @@ def is_fresh_enough(published_at: str) -> bool:
     return 0 <= age_hours <= MAX_SIGNAL_AGE_HOURS
 
 
-def save_signal(conn_str: str, signal: dict) -> str:
+def save_signal(signal: dict) -> str:
+    conn = None
+    cur = None
     try:
-        conn = psycopg2.connect(conn_str)
+        conn = get_connection()
         cur = conn.cursor()
 
         # Build tickers as a Postgres text[] of validated symbol strings.
@@ -774,12 +701,17 @@ def save_signal(conn_str: str, signal: dict) -> str:
         cur.execute(query, values)
         signal_id = cur.fetchone()[0]
         conn.commit()
-        cur.close()
-        conn.close()
         return str(signal_id)
     except Exception as e:
         print(f'Failed to save signal to DB: {e}')
+        if conn:
+            conn.rollback()
         return None
+    finally:
+        if cur is not None:
+            cur.close()
+        if conn is not None:
+            return_connection(conn)
 
 
 def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
@@ -815,8 +747,69 @@ def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
         print(f'Failed to publish signal to Redis: {e}')
 
 
+def is_mature_signal(published_at_str: str) -> bool:
+    """Check if signal is mature (>= 24 hours old)."""
+    dt = parse_iso_datetime(published_at_str)
+    if not dt:
+        return False  # Unknown age, treat as immature for caution
+    age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+    return age_hours >= MATURITY_THRESHOLD_HOURS
+
+
+def parallelize_ticker_verification(tickers: list, max_workers: int = 5) -> list:
+    """
+    Verify tickers in parallel using ThreadPoolExecutor.
+    Returns list of verified symbol strings.
+    """
+    if not tickers:
+        return []
+    
+    # Extract unique symbols
+    unique_symbols = []
+    seen = set()
+    for t in tickers:
+        if isinstance(t, dict):
+            s = str(t.get('symbol', '')).upper().strip()
+        else:
+            s = str(t).upper().strip()
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        unique_symbols.append(s)
+    
+    if not unique_symbols:
+        return []
+    
+    # Verify in parallel
+    verified = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(verify_ticker_exists, sym): sym for sym in unique_symbols}
+        for future in as_completed(futures):
+            sym = futures[future]
+            try:
+                if future.result():
+                    verified.append(sym)
+            except Exception as e:
+                print(f'  Warning: Ticker verification failed for {sym}: {e}')
+    
+    return verified
+
+
+def queue_immature_signal(r: redis.Redis, signal: dict, signal_id: str):
+    """Queue signal for later performance tracking."""
+    try:
+        published_at = signal.get('article_published_at', '')
+        dt = parse_iso_datetime(published_at)
+        score = dt.timestamp() if dt else datetime.now(timezone.utc).timestamp()
+        r.zadd('signals:immature_queue', {signal_id: score})
+        print(f'  queued signal {signal_id} for later performance tracking (published {published_at})')
+    except Exception as e:
+        print(f'  Warning: Failed to queue immature signal: {e}')
+
+
 def main() -> int:
     load_environment()
+    initialize_pool()
 
     DATABASE_URL = os.getenv('DATABASE_URL')
     REDIS_URL = os.getenv('REDIS_URL')
@@ -828,7 +821,7 @@ def main() -> int:
     r = redis.from_url(REDIS_URL)
 
     try:
-        ensure_signal_columns(DATABASE_URL)
+        ensure_signal_columns()
     except Exception as e:
         print(f'Failed to ensure signal columns: {e}')
         return 1
@@ -876,7 +869,6 @@ def main() -> int:
                         continue
 
                     # Gemini is the primary signal engine for this project.
-                    # Heuristic fallback is optional and off by default.
                     try:
                         signal = generate_signal_with_gemini(article)
                     except Exception as gemini_err:
@@ -884,14 +876,9 @@ def main() -> int:
                         r.xack(STREAM_KEY, GROUP, msg_id)
                         continue
 
-
-
-                    # Hard live verification: only keep real currently traded symbols.
-                    # verify_tickers_exist returns list of verified symbol strings
-                    verified_symbols = verify_tickers_exist(signal.get('tickers', []))
-                    # Filter parsed tickers (objects) to only verified ones
+                    # Parallel ticker verification (Phase 3)
+                    verified_symbols = parallelize_ticker_verification(signal.get('tickers', []))
                     kept = [t for t in signal.get('tickers', []) if isinstance(t, dict) and t.get('symbol') in verified_symbols]
-                    # If signal had simple list form, convert verified symbols to medium conviction
                     if not kept and verified_symbols:
                         kept = [{'symbol': s, 'conviction': 'medium'} for s in verified_symbols]
                     signal['tickers'] = kept
@@ -901,7 +888,6 @@ def main() -> int:
                     source_hint = classify_source_origin(article)
                     signal_source = signal.get('source_attribution', '')
                     signal['source_attribution'] = signal_source or source_hint
-                    # For normalization pass, pass list of verified symbol strings
                     verified_symbol_list = [t['symbol'] for t in signal.get('tickers', []) if isinstance(t, dict)]
                     signal['confidence'] = normalize_confidence(signal, verified_symbol_list, signal['source_attribution'])
 
@@ -933,24 +919,38 @@ def main() -> int:
                         r.xack(STREAM_KEY, GROUP, msg_id)
                         continue
 
-                    sid = save_signal(DATABASE_URL, signal)
+                    sid = save_signal(signal)
                     if sid:
-                        # Synchronously track performance before publishing
-                        # This ensures matured signals (backdated) show performance immediately
-                        try:
-                            track_performance(sid)
+                        # Phase 1: Conditional blocking based on maturity
+                        published_at = signal.get('article_published_at', '')
+                        is_mature = is_mature_signal(published_at)
+                        
+                        if is_mature:
+                            # Mature signal (>= 24h old): wait for performance metrics before publishing
+                            print(f'  signal {sid} is mature, fetching performance metrics...')
+                            try:
+                                track_performance(sid)
+                                # Fetch performance records to include in publish
+                                conn = get_connection()
+                                try:
+                                    with conn.cursor() as cur:
+                                        cur.execute("SELECT row_to_json(sp) FROM signal_performance sp WHERE signal_id = %s", (sid,))
+                                        signal['performance'] = [r[0] for r in cur.fetchall()]
+                                finally:
+                                    return_connection(conn)
+                            except Exception as e:
+                                print(f'  Warning: Performance tracking failed for mature signal: {e}')
+                                signal['performance'] = []
                             
-                            # Fetch the newly created performance records to include in the publish payload
-                            conn = psycopg2.connect(DATABASE_URL)
-                            with conn.cursor() as cur:
-                                cur.execute("SELECT row_to_json(sp) FROM signal_performance sp WHERE signal_id = %s", (sid,))
-                                signal['performance'] = [r[0] for r in cur.fetchall()]
-                            conn.close()
-                        except Exception as e:
-                            print(f"  Warning: Performance tracking failed before publish: {e}")
-
-                        publish_signal(r, OUT_STREAM, signal, sid)
-                        print(f'  saved signal {sid} -> {signal.get("tickers")}')
+                            publish_signal(r, OUT_STREAM, signal, sid)
+                            print(f'  saved mature signal {sid} with performance metrics -> {signal.get("tickers")}')
+                        else:
+                            # Fresh signal (< 24h old): publish immediately, queue for later tracking
+                            print(f'  signal {sid} is fresh, publishing immediately...')
+                            signal['performance'] = []
+                            publish_signal(r, OUT_STREAM, signal, sid)
+                            queue_immature_signal(r, signal, sid)
+                            print(f'  saved fresh signal {sid} -> {signal.get("tickers")}')
 
                     r.xack(STREAM_KEY, GROUP, msg_id)
 
