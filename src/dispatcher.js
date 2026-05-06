@@ -153,6 +153,73 @@ function formatSignalMessage(obj) {
   return parts.join('\n');
 }
 
+async function matchWatchlistRules(pool, signalObj) {
+  // Extract signal properties for matching
+  const tickers = parseJsonArray(signalObj.tickers).map(t => {
+    if (typeof t === 'string') return t.toUpperCase();
+    if (typeof t === 'object' && t) return String(t.symbol || t.ticker || '').toUpperCase();
+    return '';
+  }).filter(Boolean);
+
+  const direction = String(signalObj.direction || '').toUpperCase();
+  const confidence = parseInt(signalObj.confidence, 10) || 0;
+  const timeHorizon = String(signalObj.time_horizon || '').toLowerCase();
+
+  if (tickers.length === 0) return { matchedUsers: [], noRuleUsers: [] };
+
+  try {
+    // Get all active watchlist rules
+    const rulesRes = await pool.query(`
+      SELECT w.id AS watchlist_id, w.user_id, w.ticker, w.direction, w.min_confidence, w.max_confidence,
+             w.time_horizon, w.notify_telegram, w.notify_in_app,
+             u.telegram_id
+      FROM user_watchlist w
+      JOIN users u ON w.user_id = u.id
+      WHERE w.active = true AND u.subscribed = true
+    `);
+
+    // Group rules by user
+    const userRules = {};
+    for (const rule of rulesRes.rows) {
+      if (!userRules[rule.user_id]) userRules[rule.user_id] = [];
+      userRules[rule.user_id].push(rule);
+    }
+
+    // Users who want ALL signals (broadcast mode)
+    const broadcastUsersRes = await pool.query(
+      'SELECT id, telegram_id FROM users WHERE subscribed = true AND telegram_broadcast = true'
+    );
+    const noRuleUsers = broadcastUsersRes.rows.filter(u => u.telegram_id);
+
+    // Match rules against signal
+    const matchedUsers = []; // { user_id, telegram_id, watchlist_id, notify_telegram, notify_in_app }
+    for (const [userId, rules] of Object.entries(userRules)) {
+      for (const rule of rules) {
+        const tickerMatch = tickers.includes(rule.ticker.toUpperCase());
+        const directionMatch = !rule.direction || rule.direction === direction;
+        const confMatch = confidence >= (rule.min_confidence || 0) && confidence <= (rule.max_confidence || 100);
+        const horizonMatch = !rule.time_horizon || timeHorizon.includes(rule.time_horizon);
+
+        if (tickerMatch && directionMatch && confMatch && horizonMatch) {
+          matchedUsers.push({
+            user_id: userId,
+            telegram_id: rule.telegram_id,
+            watchlist_id: rule.watchlist_id,
+            notify_telegram: rule.notify_telegram,
+            notify_in_app: rule.notify_in_app
+          });
+          break; // One match per user is enough
+        }
+      }
+    }
+
+    return { matchedUsers, noRuleUsers };
+  } catch (err) {
+    console.error('Dispatcher: watchlist matching error', err.message || err);
+    return { matchedUsers: [], noRuleUsers: [] };
+  }
+}
+
 async function startDispatcher({ pool, bot, redisUrl }) {
   if (!bot) {
     console.warn('Dispatcher: Telegram bot missing; dispatcher not started.');
@@ -200,23 +267,52 @@ async function startDispatcher({ pool, bot, redisUrl }) {
             }
 
             const message = formatSignalMessage(obj);
+            const signalId = obj.id || null;
 
-            // Fetch subscribed users
-            const resUsers = await pool.query('SELECT telegram_id FROM users WHERE subscribed = true');
-            const userIds = resUsers.rows.map((r) => r.telegram_id).filter(Boolean);
+            // Phase 2: Watchlist-aware dispatch
+            const { matchedUsers, noRuleUsers } = await matchWatchlistRules(pool, obj);
+
+            // Build combined Telegram recipient list
+            const telegramRecipients = [];
+
+            // Users without rules get all signals (broadcast)
+            for (const u of noRuleUsers) {
+              if (u.telegram_id) telegramRecipients.push(u.telegram_id);
+            }
+
+            // Users with matching watchlist rules
+            for (const match of matchedUsers) {
+              if (match.notify_telegram && match.telegram_id) {
+                telegramRecipients.push(match.telegram_id);
+              }
+
+              // Insert in-app notification
+              if (match.notify_in_app && signalId) {
+                try {
+                  await pool.query(
+                    'INSERT INTO user_in_app_notifications (user_id, signal_id, watchlist_id) VALUES ($1, $2, $3)',
+                    [match.user_id, signalId, match.watchlist_id]
+                  );
+                } catch (notifErr) {
+                  console.warn('Dispatcher: failed to insert in-app notification', notifErr.message);
+                }
+              }
+            }
+
+            // Deduplicate telegram IDs
+            const uniqueRecipients = [...new Set(telegramRecipients)];
 
             // Rate limiting config
-            const batchSize = Number(process.env.DISPATCH_BATCH_SIZE || 20); // messages per batch
-            const delayMs = Number(process.env.DISPATCH_DELAY_MS || 1000); // delay between batches
+            const batchSize = Number(process.env.DISPATCH_BATCH_SIZE || 20);
+            const delayMs = Number(process.env.DISPATCH_DELAY_MS || 1000);
 
-            for (let i = 0; i < userIds.length; i += batchSize) {
-              const batch = userIds.slice(i, i + batchSize);
+            for (let i = 0; i < uniqueRecipients.length; i += batchSize) {
+              const batch = uniqueRecipients.slice(i, i + batchSize);
 
               await Promise.all(batch.map(async (tid) => {
                 try {
                   await bot.telegram.sendMessage(tid, message, { parse_mode: 'HTML' });
                 } catch (sendErr) {
-                  // 429 Too Many Requests -> backoff
                   if (sendErr && sendErr.response && sendErr.response.statusCode === 429) {
                     const retryAfter = (sendErr.response.body && sendErr.response.body.parameters && sendErr.response.body.parameters.retry_after) || 1;
                     console.warn('Dispatcher: rate limited, retrying after', retryAfter, 's');
@@ -228,9 +324,10 @@ async function startDispatcher({ pool, bot, redisUrl }) {
                 }
               }));
 
-              // Wait between batches to respect limits
-              if (i + batchSize < userIds.length) await new Promise((r) => setTimeout(r, delayMs));
+              if (i + batchSize < uniqueRecipients.length) await new Promise((r) => setTimeout(r, delayMs));
             }
+
+            console.log(`Dispatcher: sent to ${uniqueRecipients.length} Telegram users (${matchedUsers.length} watchlist matches, ${noRuleUsers.length} broadcast)`);
 
             await redis.xack(STREAM, GROUP, id);
           } catch (procErr) {

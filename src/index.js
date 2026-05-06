@@ -5,6 +5,8 @@ const path = require('path');
 const { Telegraf } = require('telegraf');
 const { Pool } = require('pg');
 const Redis = require('ioredis');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 const { poll: startNewsPoller } = require('./newsApi');
 
@@ -58,9 +60,69 @@ async function start() {
   if (TELEGRAM_BOT_TOKEN) {
     bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
-    bot.start((ctx) => ctx.reply('MarketPulse AI is online. Use /help to see available commands.'));
+    bot.start((ctx) => {
+      console.log('Command: /start');
+      return ctx.reply('MarketPulse AI is online. Use /help to see available commands.');
+    });
     bot.help((ctx) => {
-      ctx.reply('/start - welcome\n/subscribe - receive signals\n/unsubscribe - stop signals\n/latest - recent signals');
+      console.log('Command: /help');
+      ctx.reply('/start - welcome\n/linktelegram <code> - link your website account\n/broadcast <on|off> - toggle receiving all signals vs watchlist only\n/subscribe - receive signals\n/unsubscribe - stop signals\n/latest - recent signals');
+    });
+
+    bot.catch((err, ctx) => {
+      console.error(`Telegraf error for ${ctx.updateType}`, err);
+    });
+
+    bot.command('linktelegram', async (ctx) => {
+      console.log('Command: /linktelegram');
+      const code = (ctx.message.text.split(' ')[1] || '').trim().toUpperCase();
+      if (!code) {
+        return ctx.reply('Please provide your link code. Example: /linktelegram ABCDEF');
+      }
+
+      const telegramId = ctx.from?.id;
+      const username = ctx.from?.username || null;
+
+      try {
+        // First, clean up any existing bot-only row for this telegram_id 
+        // to avoid unique constraint violations when linking the web account
+        await pool.query(
+          'DELETE FROM users WHERE telegram_id = $1 AND telegram_link_code IS NULL',
+          [telegramId]
+        );
+
+        const result = await pool.query(
+          'UPDATE users SET telegram_id = $1, username = $2, subscribed = true WHERE telegram_link_code = $3 RETURNING id, display_name',
+          [telegramId, username, code]
+        );
+
+        if (result.rowCount === 0) {
+          return ctx.reply('Invalid link code. Please check the website and try again.');
+        }
+
+        const user = result.rows[0];
+        await ctx.reply(`Success! Your Telegram account is now linked to your MarketPulse AI profile (${user.display_name}).\n\nBy default, you will receive all signals. Use /broadcast off to only receive signals that match your website watchlist.`);
+      } catch (err) {
+        console.error('Error linking telegram:', err);
+        ctx.reply('An error occurred while linking your account. Please try again.');
+      }
+    });
+
+    bot.command('broadcast', async (ctx) => {
+      console.log('Command: /broadcast');
+      const telegramId = ctx.from?.id;
+      const args = ctx.message.text.split(' ');
+      const mode = (args[1] || '').toLowerCase();
+
+      if (mode === 'on') {
+        await pool.query('UPDATE users SET telegram_broadcast = true WHERE telegram_id = $1', [telegramId]);
+        return ctx.reply('Broadcast ON: You will receive all MarketPulse AI signals.');
+      } else if (mode === 'off') {
+        await pool.query('UPDATE users SET telegram_broadcast = false WHERE telegram_id = $1', [telegramId]);
+        return ctx.reply('Broadcast OFF: You will only receive signals that match your website watchlist.');
+      } else {
+        return ctx.reply('Please specify on or off. Example: /broadcast off');
+      }
     });
 
     bot.command('subscribe', async (ctx) => {
@@ -118,13 +180,13 @@ async function start() {
     });
   }
 
-  const webhookMiddleware = bot ? bot.webhookCallback(WEBHOOK_PATH) : null;
+  const webhookMiddleware = bot ? bot.webhookCallback() : null;
 
   const server = http.createServer(async (req, res) => {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -146,7 +208,21 @@ async function start() {
     }
 
     if (bot && req.method === 'POST' && pathname === WEBHOOK_PATH) {
-      webhookMiddleware(req, res);
+      console.log('Incoming Telegram webhook update...');
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const update = JSON.parse(body);
+          await bot.handleUpdate(update);
+          res.writeHead(200);
+          res.end('OK');
+        } catch (err) {
+          console.error('Error handling Telegram update:', err);
+          res.writeHead(500);
+          res.end('Error');
+        }
+      });
       return;
     }
 
@@ -260,6 +336,307 @@ async function start() {
       return;
     }
 
+    // ============================================================
+    // Helpers for JSON body parsing & session auth
+    // ============================================================
+    function parseBody() {
+      return new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', chunk => data += chunk);
+        req.on('end', () => {
+          try { resolve(data ? JSON.parse(data) : {}); }
+          catch { reject(new Error('Invalid JSON')); }
+        });
+        req.on('error', reject);
+      });
+    }
+
+    async function authenticateRequest() {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (!token) return null;
+      const result = await pool.query(
+        'SELECT id, email, display_name, telegram_id, telegram_link_code FROM users WHERE session_token = $1',
+        [token]
+      );
+      return result.rows.length > 0 ? result.rows[0] : null;
+    }
+
+    // ============================================================
+    // Auth APIs
+    // ============================================================
+
+    // POST /api/auth/register
+    if (req.method === 'POST' && pathname === '/api/auth/register') {
+      try {
+        const body = await parseBody();
+        const { email, password, display_name } = body;
+        if (!email || !password) return sendJson(400, { error: 'Email and password are required' });
+        if (password.length < 6) return sendJson(400, { error: 'Password must be at least 6 characters' });
+
+        // Check if email already exists
+        const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (existing.rows.length > 0) return sendJson(409, { error: 'Email already registered' });
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        const telegramLinkCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+
+        const result = await pool.query(
+          `INSERT INTO users (email, password_hash, display_name, session_token, authenticated_at, telegram_link_code, subscribed)
+           VALUES ($1, $2, $3, $4, NOW(), $5, true) RETURNING id, email, display_name, telegram_link_code`,
+          [email, passwordHash, display_name || email.split('@')[0], sessionToken, telegramLinkCode]
+        );
+
+        sendJson(201, { user: result.rows[0], session_token: sessionToken });
+      } catch (err) {
+        console.error('Register error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // POST /api/auth/login
+    if (req.method === 'POST' && pathname === '/api/auth/login') {
+      try {
+        const body = await parseBody();
+        const { email, password } = body;
+        if (!email || !password) return sendJson(400, { error: 'Email and password are required' });
+
+        const result = await pool.query('SELECT id, email, display_name, password_hash, telegram_id, telegram_link_code FROM users WHERE email = $1', [email]);
+        if (result.rows.length === 0) return sendJson(401, { error: 'Invalid credentials' });
+
+        const user = result.rows[0];
+        const valid = await bcrypt.compare(password, user.password_hash);
+        if (!valid) return sendJson(401, { error: 'Invalid credentials' });
+
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        await pool.query('UPDATE users SET session_token = $1, authenticated_at = NOW() WHERE id = $2', [sessionToken, user.id]);
+
+        sendJson(200, {
+          user: { id: user.id, email: user.email, display_name: user.display_name, telegram_id: user.telegram_id, telegram_link_code: user.telegram_link_code },
+          session_token: sessionToken
+        });
+      } catch (err) {
+        console.error('Login error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // GET /api/auth/me
+    if (req.method === 'GET' && pathname === '/api/auth/me') {
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        sendJson(200, { user });
+      } catch (err) {
+        console.error('Auth me error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // POST /api/auth/logout
+    if (req.method === 'POST' && pathname === '/api/auth/logout') {
+      try {
+        const user = await authenticateRequest();
+        if (user) {
+          await pool.query('UPDATE users SET session_token = NULL WHERE id = $1', [user.id]);
+        }
+        sendJson(200, { ok: true });
+      } catch (err) {
+        console.error('Logout error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // ============================================================
+    // Watchlist APIs
+    // ============================================================
+
+    // GET /api/watchlist
+    if (req.method === 'GET' && pathname === '/api/watchlist') {
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        const result = await pool.query(
+          'SELECT * FROM user_watchlist WHERE user_id = $1 AND active = true ORDER BY created_at DESC',
+          [user.id]
+        );
+        sendJson(200, result.rows);
+      } catch (err) {
+        console.error('Watchlist fetch error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // POST /api/watchlist
+    if (req.method === 'POST' && pathname === '/api/watchlist') {
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        const body = await parseBody();
+        const { ticker, direction, min_confidence, max_confidence, time_horizon, source_quality, notify_telegram, notify_in_app, name } = body;
+        if (!ticker) return sendJson(400, { error: 'Ticker is required' });
+
+        // Enforce limit of 20 rules per user
+        const countRes = await pool.query('SELECT COUNT(*) FROM user_watchlist WHERE user_id = $1 AND active = true', [user.id]);
+        if (parseInt(countRes.rows[0].count, 10) >= 20) return sendJson(400, { error: 'Maximum 20 watchlist rules allowed' });
+
+        const result = await pool.query(
+          `INSERT INTO user_watchlist (user_id, ticker, direction, min_confidence, max_confidence, time_horizon, source_quality, notify_telegram, notify_in_app, name)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+          [user.id, ticker.toUpperCase(), direction || null, min_confidence || 0, max_confidence || 100,
+           time_horizon || null, source_quality || null, notify_telegram !== false, notify_in_app !== false, name || null]
+        );
+        sendJson(201, result.rows[0]);
+      } catch (err) {
+        console.error('Watchlist create error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // PUT /api/watchlist/:id
+    if (req.method === 'PUT' && pathname.startsWith('/api/watchlist/')) {
+      const watchlistId = pathname.split('/')[3];
+      if (!watchlistId) return sendJson(400, { error: 'Missing ID' });
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        const body = await parseBody();
+
+        // Build dynamic UPDATE
+        const allowed = ['name', 'ticker', 'direction', 'min_confidence', 'max_confidence', 'time_horizon', 'source_quality', 'notify_telegram', 'notify_in_app', 'active'];
+        const sets = [];
+        const vals = [];
+        let idx = 1;
+        for (const key of allowed) {
+          if (body[key] !== undefined) {
+            sets.push(`${key} = $${idx++}`);
+            vals.push(key === 'ticker' ? String(body[key]).toUpperCase() : body[key]);
+          }
+        }
+        if (sets.length === 0) return sendJson(400, { error: 'No fields to update' });
+        sets.push(`updated_at = NOW()`);
+        vals.push(watchlistId, user.id);
+
+        const result = await pool.query(
+          `UPDATE user_watchlist SET ${sets.join(', ')} WHERE id = $${idx++} AND user_id = $${idx} RETURNING *`,
+          vals
+        );
+        if (result.rows.length === 0) return sendJson(404, { error: 'Watchlist item not found' });
+        sendJson(200, result.rows[0]);
+      } catch (err) {
+        console.error('Watchlist update error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // DELETE /api/watchlist/:id
+    if (req.method === 'DELETE' && pathname.startsWith('/api/watchlist/')) {
+      const watchlistId = pathname.split('/')[3];
+      if (!watchlistId) return sendJson(400, { error: 'Missing ID' });
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        const result = await pool.query(
+          'UPDATE user_watchlist SET active = false, updated_at = NOW() WHERE id = $1 AND user_id = $2 RETURNING id',
+          [watchlistId, user.id]
+        );
+        if (result.rows.length === 0) return sendJson(404, { error: 'Watchlist item not found' });
+        sendJson(200, { ok: true });
+      } catch (err) {
+        console.error('Watchlist delete error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // ============================================================
+    // Notification APIs
+    // ============================================================
+
+    // GET /api/notifications
+    if (req.method === 'GET' && pathname === '/api/notifications') {
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+
+        const unreadOnly = requestUrl.searchParams.get('unread') === 'true';
+        const limit = parseInt(requestUrl.searchParams.get('limit') || '20', 10);
+        const countOnly = requestUrl.searchParams.get('count') === 'true';
+
+        if (countOnly) {
+          const countRes = await pool.query(
+            'SELECT COUNT(*) FROM user_in_app_notifications WHERE user_id = $1 AND read = false',
+            [user.id]
+          );
+          return sendJson(200, { unread_count: parseInt(countRes.rows[0].count, 10) });
+        }
+
+        let query = `
+          SELECT n.id, n.signal_id, n.watchlist_id, n.read, n.created_at,
+                 s.tickers, s.direction, s.confidence, s.source_headline, s.root_cause
+          FROM user_in_app_notifications n
+          JOIN signals s ON n.signal_id = s.id
+          WHERE n.user_id = $1
+        `;
+        const vals = [user.id];
+        if (unreadOnly) {
+          query += ' AND n.read = false';
+        }
+        query += ` ORDER BY n.created_at DESC LIMIT $${vals.length + 1}`;
+        vals.push(limit);
+
+        const result = await pool.query(query, vals);
+        sendJson(200, result.rows);
+      } catch (err) {
+        console.error('Notifications fetch error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // POST /api/notifications/:id/read
+    if (req.method === 'POST' && pathname.match(/^\/api\/notifications\/[^/]+\/read$/)) {
+      const notifId = pathname.split('/')[3];
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        await pool.query(
+          'UPDATE user_in_app_notifications SET read = true WHERE id = $1 AND user_id = $2',
+          [notifId, user.id]
+        );
+        sendJson(200, { ok: true });
+      } catch (err) {
+        console.error('Mark read error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
+    // POST /api/notifications/read-all
+    if (req.method === 'POST' && pathname === '/api/notifications/read-all') {
+      try {
+        const user = await authenticateRequest();
+        if (!user) return sendJson(401, { error: 'Not authenticated' });
+        await pool.query(
+          'UPDATE user_in_app_notifications SET read = true WHERE user_id = $1 AND read = false',
+          [user.id]
+        );
+        sendJson(200, { ok: true });
+      } catch (err) {
+        console.error('Mark all read error:', err);
+        sendJson(500, { error: 'Internal Server Error' });
+      }
+      return;
+    }
+
     // Phase 3: Static File Serving
     if (req.method === 'GET') {
       let filePath = path.join(__dirname, '..', 'website', pathname === '/' ? 'index.html' : pathname);
@@ -306,13 +683,17 @@ async function start() {
       console.log(`MarketPulse scaffold listening on http://localhost:${PORT}`);
 
       if (bot && WEBHOOK_DOMAIN) {
-        const webhookUrl = `${WEBHOOK_DOMAIN.replace(/\/$/, '')}${WEBHOOK_PATH}`;
-        await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: true });
-        console.log(`Telegram webhook set to ${webhookUrl}`);
+        try {
+          const webhookUrl = `${WEBHOOK_DOMAIN.replace(/\/$/, '')}${WEBHOOK_PATH}`;
+          await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: true });
+          console.log(`Telegram webhook set to ${webhookUrl}`);
+        } catch (webhookErr) {
+          console.error('Failed to set Telegram webhook:', webhookErr.message);
+        }
       } else if (bot) {
         console.warn('TELEGRAM_BOT_TOKEN is set but WEBHOOK_DOMAIN is missing; webhook was not registered.');
       } else {
-        console.warn('TELEGRAM_BOT_TOKEN is missing; running in scaffold mode without Telegram webhook support.');
+        console.warn('TELEGRAM_BOT_TOKEN is missing; running in scaffold mode without Telegram support.');
       }
 
           await startNewsPoller();

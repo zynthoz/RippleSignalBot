@@ -1,0 +1,64 @@
+MarketPulse scaffold listening on http://localhost:3000
+Telegram webhook set to https://thursday-debating-badland.ngrok-free.dev/webhook
+Starting news poller...
+API returned 18 articles
+Analyzing: Robots move in as waste firms struggle to find staff - BBC
+  → Event date: 2026-05-04T23:43:28.000Z (recent, keeping)
+Analyzing: Doris Fisher, co-founder of iconic Gap chain, dies at 94 - ABC News - Breaking News, Latest News and Videos
+  → Event date: 2026-05-04T23:20:39.000Z (recent, keeping)
+Analyzing: Baltimore bakery truck hit by United Airlines jet on New Jersey Turnpike, video shows - CBS News
+  → Event date: 2026-05-04T22:57:38.000Z (recent, keeping)
+Analyzing: Paramount Making “Great Progress” on Warner Bros. Buy, Reaffirms Deal Close Timing - The Hollywood Reporter
+  → Event date: 2026-05-04T21:53:19.000Z (recent, keeping)
+Analyzing: California could suspend State Farm’s license | KNX News 1070 AM - Audacy
+  → Event date: 2026-05-04T21:25:28.000Z (recent, keeping)
+Analyzing: Delta is canceling hundreds of flights due to crew and scheduling challenges, an internal memo shows - Business Insider
+  → Event date: 2026-05-04T21:09:20.000Z (recent, keeping)
+Analyzing: Trump’s former AI czar says the quiet part out loud on the economy: ‘Stopping progress in AI would be equivalent to halting the US economy’ - Fortune
+  → Event date: 2026-05-04T20:09:00.000Z (recent, keeping)
+Analyzing: Palantir Reports Q1 2026 U.S. Revenue Growth of 104% Y/Y and Revenue Growth of 85% Y/Y; Raises FY 2026 Revenue Guidance to 71% Y/Y Growth and U.S. Comm Revenue Guidance to 120% Y/Y, Crushing Consensus Expectations - Business Wire
+  → Event date: 2026-05-04T20:05:00.000Z (recent, keeping)
+Analyzing: Stock Market Today: Dow Slips, Oil Rises on Fears of Hormuz Escalation — Live Updates - WSJ
+  → Event date: 2026-05-04T18:02:00.000Z (recent, keeping)
+Analyzing: Elon Musk’s only AI expert witness at the OpenAI trial fears an AGI arms race - TechCrunch
+  → Event date: 2026-05-04T16:57:47.000Z (recent, keeping)
+Analyzing: How Spirit Airlines' demise will benefit rivals — and raise airfares even more - CNBC
+  → Event date: 2026-05-04T16:23:59.000Z (recent, keeping)
+Analyzing: Gas prices rise to $4.46 per gallon and oil jumps as shippers stay out of Strait of Hormuz - NBC News
+  → Event date: 2026-05-04T16:08:49.000Z (recent, keeping)
+Analyzing: Anthropic and OpenAI are both launching joint ventures for enterprise AI services - TechCrunch
+  → Event date: 2026-05-04T15:59:24.000Z (recent, keeping)
+Analyzing: Amazon’s trying to turn its massive shipping operation into another AWS - The Verge
+  → Event date: 2026-05-04T15:16:14.000Z (recent, keeping)
+Analyzing: Berkshire shares trade higher as Buffett successor Abel scores good marks at meeting, earnings jump - CNBC
+  → Event date: 2026-05-04T12:44:12.000Z (recent, keeping)
+Analyzing: American Express Global Business Travel Enters $6.3 Billion Take-Private Deal - WSJ
+  → Event date: 2026-05-04T12:25:00.000Z (recent, keeping)
+Analyzing: Jerome Powell Just Threw President Donald Trump Under the Bus One Last Time Before His Term as Fed Chair Ends - Yahoo Finance
+  → Event date: 2026-05-04T09:26:00.000Z (recent, keeping)
+Analyzing: OPEC+ countries agree modest rise in production as Iran retains chokehold on key Strait of Hormuz - AP News
+  → Event date: 2026-05-03T16:14:00.000Z (recent, keeping)
+After event date filtering: 18 articles
+Fetched 18 articles
+Skipping duplicate (already processed in Redis cache): Robots move in as waste firms struggle to find staff - BBC
+Skipping duplicate (already processed in Redis cache): Doris Fisher, co-founder of iconic Gap chain, dies at 94 - ABC News - Breaking News, Latest News and Videos
+Skipping duplicate (already processed in Redis cache): Baltimore bakery truck hit by United Airlines jet on New Jersey Turnpike, video shows - CBS News
+Skipping duplicate (already processed in Redis cache): Paramount Making “Great Progress” on Warner Bros. Buy, Reaffirms Deal Close Timing - The Hollywood Reporter
+Skipping duplicate (already processed in Redis cache): California could suspend State Farm’s license | KNX News 1070 AM - Audacy
+Skipping duplicate (already processed in Redis cache): Delta is canceling hundreds of flights due to crew and scheduling challenges, an internal memo shows - Business Insider
+Skipping duplicate (already processed in Redis cache): Trump’s former AI czar says the quiet part out loud on the economy: ‘Stopping progress in AI would be equivalent to halting the US economy’ - Fortune
+Skipping duplicate (already processed in Redis cache): Palantir Reports Q1 2026 U.S. Revenue Growth of 104% Y/Y and Revenue Growth of 85% Y/Y; Raises FY 2026 Revenue Guidance to 71% Y/Y Growth and U.S. Comm Revenue Guidance to 120% Y/Y, Crushing Consensus Expectations - Business Wire
+Skipping duplicate (already processed in Redis cache): Stock Market Today: Dow Slips, Oil Rises on Fears of Hormuz Escalation — Live Updates - WSJ
+Skipping duplicate (already processed in Redis cache): Elon Musk’s only AI expert witness at the OpenAI trial fears an AGI arms race - TechCrunch
+Skipping duplicate (already processed in Redis cache): How Spirit Airlines' demise will benefit rivals — and raise airfares even more - CNBC
+Skipping duplicate (already processed in Redis cache): Gas prices rise to $4.46 per gallon and oil jumps as shippers stay out of Strait of Hormuz - NBC News
+Skipping duplicate (already processed in Redis cache): Anthropic and OpenAI are both launching joint ventures for enterprise AI services - TechCrunch
+Skipping duplicate (already processed in Redis cache): Amazon’s trying to turn its massive shipping operation into another AWS - The Verge
+Skipping duplicate (already processed in Redis cache): Berkshire shares trade higher as Buffett successor Abel scores good marks at meeting, earnings jump - CNBC
+Skipping duplicate (already processed in Redis cache): American Express Global Business Travel Enters $6.3 Billion Take-Private Deal - WSJ
+Skipping duplicate (already processed in Redis cache): Jerome Powell Just Threw President Donald Trump Under the Bus One Last Time Before His Term as Fed Chair Ends - Yahoo Finance
+Skipping duplicate (already processed in Redis cache): OPEC+ countries agree modest rise in production as Iran retains chokehold on key Strait of Hormuz - AP News
+Published 0 new articles to news:raw
+Signal dispatcher started
+Dispatcher: listening for signals...
+SIGTERM received, shutting down...

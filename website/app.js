@@ -13,6 +13,15 @@ let newSignalIndicator;
 let currentPage = 1;
 const pageSize = 10;
 
+// Auth & User state
+let currentUser = null;
+let sessionToken = localStorage.getItem('mp_session_token') || null;
+let notifPollInterval = null;
+
+function authHeaders() {
+    return sessionToken ? { 'Authorization': 'Bearer ' + sessionToken, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
 // Formatting Utilities
 function escapeHtml(value) {
     if (!value) return '';
@@ -462,6 +471,8 @@ function renderAnalysisNode(signal) {
     const isBull = signal.direction === 'BULLISH';
     const isBear = signal.direction === 'BEARISH';
     const color = isBull ? 'secondary' : isBear ? 'error' : 'primary-fixed-dim';
+    const tickerList = normalizeTickerList(signal.tickers);
+    const primaryTicker = (tickerList[0] || '').replace(/'/g, '');
     
     const catalystChain = normalizeTextList(signal.catalyst_chain);
     
@@ -587,11 +598,12 @@ function renderAnalysisNode(signal) {
         </div>
 
         <!-- Sticky Actions -->
-        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex gap-2 z-20">
+        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex gap-2 z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]">
             <button class="flex-1 bg-primary text-on-primary font-label-caps text-[11px] py-3 rounded-md hover:bg-primary-active transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 tracking-wider">
                 <span class="material-symbols-outlined text-[16px]">bookmark_add</span> SAVE SIGNAL
             </button>
-            <button class="flex-1 bg-surface-card-elevated border border-hairline-strong text-body-strong font-label-caps text-[11px] py-3 rounded-md hover:bg-hairline transition-colors flex items-center justify-center gap-1.5 tracking-wider">
+            <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})"
+                class="flex-1 bg-surface-card-elevated border border-hairline-strong text-body-strong font-label-caps text-[11px] py-3 rounded-md hover:bg-hairline transition-colors flex items-center justify-center gap-1.5 tracking-wider">
                 <span class="material-symbols-outlined text-[16px]">add_alert</span> SET ALERT
             </button>
         </div>
@@ -1297,4 +1309,454 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start SSE stream
     setupSSE();
+
+    // Restore auth session
+    restoreSession();
+
+    // Close popovers on outside click
+    document.addEventListener('click', (e) => {
+        const authPopover = document.getElementById('auth-popover');
+        const notifPopover = document.getElementById('notification-popover');
+        const authTrigger = document.getElementById('auth-trigger');
+        const notifTrigger = document.getElementById('notif-trigger');
+
+        if (authPopover && !authPopover.classList.contains('hidden') && !authPopover.contains(e.target) && !authTrigger.contains(e.target)) {
+            authPopover.classList.add('hidden');
+        }
+        if (notifPopover && !notifPopover.classList.contains('hidden') && !notifPopover.contains(e.target) && !notifTrigger.contains(e.target)) {
+            notifPopover.classList.add('hidden');
+        }
+    });
 });
+
+// ============================================================
+// Auth Functions
+// ============================================================
+
+async function restoreSession() {
+    if (!sessionToken) {
+        updateAuthUI();
+        return;
+    }
+    try {
+        const res = await fetch('/api/auth/me', { headers: authHeaders() });
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = data.user;
+            updateAuthUI();
+            startNotificationPolling();
+        } else {
+            // Invalid session
+            sessionToken = null;
+            localStorage.removeItem('mp_session_token');
+            updateAuthUI();
+        }
+    } catch (e) {
+        console.error('Session restore failed:', e);
+        updateAuthUI();
+    }
+}
+
+function updateAuthUI() {
+    const authPage = document.getElementById('auth-page');
+    const appDashboard = document.getElementById('app-dashboard');
+    const userView = document.getElementById('auth-user-view');
+    const authIcon = document.getElementById('auth-icon');
+
+    if (currentUser) {
+        // Logged in: show dashboard, hide auth page
+        authPage.classList.add('hidden');
+        appDashboard.classList.remove('hidden');
+        
+        // Update user profile popover
+        if (userView) userView.classList.remove('hidden');
+        if (authIcon) {
+            authIcon.textContent = 'person';
+            authIcon.style.fontVariationSettings = '"FILL" 1';
+        }
+
+        document.getElementById('auth-user-name').textContent = currentUser.display_name || currentUser.email;
+        document.getElementById('auth-user-email').textContent = currentUser.email;
+        document.getElementById('auth-telegram-code').textContent = currentUser.telegram_link_code || '—';
+        document.getElementById('auth-telegram-status').textContent = currentUser.telegram_id ? '✓ Linked' : 'Not linked';
+
+        const initials = (currentUser.display_name || currentUser.email || '?').substring(0, 2).toUpperCase();
+        document.getElementById('auth-avatar').textContent = initials;
+    } else {
+        // Not logged in: show auth page, hide dashboard
+        authPage.classList.remove('hidden');
+        appDashboard.classList.add('hidden');
+        
+        // Hide user profile popover content just in case
+        if (userView) userView.classList.add('hidden');
+        if (authIcon) {
+            authIcon.textContent = 'person';
+            authIcon.style.fontVariationSettings = '"FILL" 0';
+        }
+        document.getElementById('auth-popover').classList.add('hidden');
+    }
+}
+
+let isRegisterMode = false;
+function toggleAuthMode() {
+    isRegisterMode = !isRegisterMode;
+    const nameContainer = document.getElementById('auth-display-name-container');
+    const loginBtn = document.getElementById('auth-login-btn');
+    const registerBtn = document.getElementById('auth-register-btn');
+    const toggleBtn = document.getElementById('auth-toggle-btn');
+    const errorEl = document.getElementById('auth-error');
+    
+    errorEl.classList.add('hidden');
+
+    if (isRegisterMode) {
+        nameContainer.classList.remove('hidden');
+        loginBtn.classList.add('hidden');
+        registerBtn.classList.remove('hidden');
+        toggleBtn.textContent = 'Already have an account? Log In';
+    } else {
+        nameContainer.classList.add('hidden');
+        loginBtn.classList.remove('hidden');
+        registerBtn.classList.add('hidden');
+        toggleBtn.textContent = "Don't have an account? Register";
+    }
+}
+
+function toggleAuthPopover() {
+    if (!currentUser) return;
+    const popover = document.getElementById('auth-popover');
+    document.getElementById('notification-popover').classList.add('hidden');
+    popover.classList.toggle('hidden');
+}
+
+async function authRegister() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const displayName = document.getElementById('auth-display-name').value.trim();
+    const errorEl = document.getElementById('auth-error');
+    errorEl.classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, display_name: displayName })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = data.error;
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        sessionToken = data.session_token;
+        localStorage.setItem('mp_session_token', sessionToken);
+        currentUser = data.user;
+        updateAuthUI();
+        startNotificationPolling();
+    } catch (e) {
+        errorEl.textContent = 'Network error';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function authLogin() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errorEl = document.getElementById('auth-error');
+    errorEl.classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = data.error;
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        sessionToken = data.session_token;
+        localStorage.setItem('mp_session_token', sessionToken);
+        currentUser = data.user;
+        updateAuthUI();
+        startNotificationPolling();
+    } catch (e) {
+        errorEl.textContent = 'Network error';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function authLogout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() });
+    } catch (e) {}
+    sessionToken = null;
+    currentUser = null;
+    localStorage.removeItem('mp_session_token');
+    updateAuthUI();
+    if (notifPollInterval) { clearInterval(notifPollInterval); notifPollInterval = null; }
+    document.getElementById('notif-badge').classList.add('hidden');
+    document.getElementById('auth-popover').classList.add('hidden');
+}
+
+// ============================================================
+// Notification Functions
+// ============================================================
+
+function toggleNotificationPopover() {
+    const popover = document.getElementById('notification-popover');
+    document.getElementById('auth-popover').classList.add('hidden');
+    popover.classList.toggle('hidden');
+    if (!popover.classList.contains('hidden') && currentUser) {
+        fetchNotifications();
+    }
+}
+
+async function fetchNotifications() {
+    if (!currentUser) return;
+    try {
+        const res = await fetch('/api/notifications?limit=20', { headers: authHeaders() });
+        if (!res.ok) return;
+        const notifications = await res.json();
+        renderNotificationList(notifications);
+    } catch (e) {
+        console.error('Failed to fetch notifications:', e);
+    }
+}
+
+function renderNotificationList(notifications) {
+    const container = document.getElementById('notification-list');
+    if (!notifications || notifications.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-muted text-sm">
+            <span class="material-symbols-outlined text-[24px] text-muted/30 block mb-2">notifications_none</span>
+            No notifications yet.
+        </div>`;
+        return;
+    }
+    container.innerHTML = notifications.map(n => {
+        const tickers = Array.isArray(n.tickers) ? n.tickers : (typeof n.tickers === 'string' ? JSON.parse(n.tickers || '[]') : []);
+        const tickerStr = tickers.map(t => typeof t === 'string' ? t : (t.symbol || '')).filter(Boolean).join(', ');
+        const headline = n.source_headline || n.root_cause || 'Signal matched your watchlist';
+        const timeAgoStr = timeAgo(n.created_at);
+        const dirColor = n.direction === 'BULLISH' ? 'secondary' : n.direction === 'BEARISH' ? 'error' : 'primary-fixed-dim';
+        const unreadDot = !n.read ? `<div class="w-2 h-2 rounded-full bg-primary shrink-0"></div>` : '';
+
+        return `<div class="px-4 py-3 border-b border-hairline hover:bg-surface-card-elevated cursor-pointer transition-colors flex items-start gap-3 ${n.read ? 'opacity-60' : ''}"
+            onclick="handleNotificationClick('${n.signal_id}', '${n.id}')">
+            ${unreadDot}
+            <div class="flex-1 min-w-0">
+                <div class="text-[12px] text-body-strong leading-snug mb-1 truncate">${escapeHtml(headline)}</div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-${dirColor} font-label-caps tracking-wider">${n.direction || ''}</span>
+                    <span class="text-[10px] text-muted">${escapeHtml(tickerStr)}</span>
+                    <span class="text-[10px] text-muted ml-auto">${timeAgoStr}</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function handleNotificationClick(signalId, notifId) {
+    // Mark as read
+    try {
+        await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', headers: authHeaders() });
+    } catch (e) {}
+    // Load the signal
+    document.getElementById('notification-popover').classList.add('hidden');
+    loadSignalDetails(signalId);
+    pollNotificationCount();
+}
+
+async function markAllNotificationsRead() {
+    if (!currentUser) return;
+    try {
+        await fetch('/api/notifications/read-all', { method: 'POST', headers: authHeaders() });
+        fetchNotifications();
+        pollNotificationCount();
+    } catch (e) {}
+}
+
+async function pollNotificationCount() {
+    if (!currentUser) return;
+    try {
+        const res = await fetch('/api/notifications?count=true', { headers: authHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.unread_count > 0) {
+            badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    } catch (e) {}
+}
+
+function startNotificationPolling() {
+    pollNotificationCount();
+    if (notifPollInterval) clearInterval(notifPollInterval);
+    notifPollInterval = setInterval(pollNotificationCount, 15000);
+}
+
+// ============================================================
+// Watchlist Drawer Functions
+// ============================================================
+
+let watchlistDrawerOpen = false;
+
+function toggleWatchlistDrawer() {
+    const drawer = document.getElementById('watchlist-drawer');
+    const backdrop = document.getElementById('watchlist-backdrop');
+    watchlistDrawerOpen = !watchlistDrawerOpen;
+
+    if (watchlistDrawerOpen) {
+        backdrop.classList.remove('hidden');
+        drawer.classList.remove('translate-x-full');
+        drawer.classList.add('translate-x-0');
+        if (currentUser) fetchWatchlistRules();
+        else renderWatchlistNotLoggedIn();
+    } else {
+        backdrop.classList.add('hidden');
+        drawer.classList.add('translate-x-full');
+        drawer.classList.remove('translate-x-0');
+    }
+}
+
+function renderWatchlistNotLoggedIn() {
+    document.getElementById('watchlist-items').innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center h-full">
+            <span class="material-symbols-outlined text-[32px] text-muted/30 mb-3">lock</span>
+            <div class="text-[13px] text-body-strong mb-1">Login Required</div>
+            <div class="text-[11px] max-w-[200px]">Create an account to set up watchlist rules and receive personalized alerts.</div>
+        </div>`;
+}
+
+async function fetchWatchlistRules() {
+    if (!currentUser) return renderWatchlistNotLoggedIn();
+    try {
+        const res = await fetch('/api/watchlist', { headers: authHeaders() });
+        if (!res.ok) return;
+        const rules = await res.json();
+        renderWatchlistItems(rules);
+    } catch (e) {
+        console.error('Failed to fetch watchlist:', e);
+    }
+}
+
+function renderWatchlistItems(rules) {
+    const container = document.getElementById('watchlist-items');
+    if (!rules || rules.length === 0) {
+        container.innerHTML = `
+            <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center">
+                <span class="material-symbols-outlined text-[32px] text-muted/30 mb-3">playlist_add</span>
+                <div class="text-[13px] text-body-strong mb-1">No Rules Yet</div>
+                <div class="text-[11px] max-w-[200px]">Add a watchlist rule below to start receiving personalized signal alerts.</div>
+            </div>`;
+        return;
+    }
+    container.innerHTML = rules.map(r => {
+        const dirDot = r.direction === 'BULLISH' ? 'bg-secondary' : r.direction === 'BEARISH' ? 'bg-error' : r.direction === 'MIXED' ? 'bg-primary-fixed-dim' : 'bg-muted';
+        const dirLabel = r.direction || 'Any';
+        const notifIcons = [];
+        if (r.notify_telegram) notifIcons.push('<span class="material-symbols-outlined text-[12px]">send</span>');
+        if (r.notify_in_app) notifIcons.push('<span class="material-symbols-outlined text-[12px]">notifications</span>');
+
+        return `<div class="bg-surface-card border border-hairline rounded-lg p-3 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="bg-surface-card-elevated border border-hairline-strong rounded px-2 py-0.5 text-body-strong text-xs font-display-ticker">${escapeHtml(r.ticker)}</div>
+                    <div class="w-2 h-2 rounded-full ${dirDot}"></div>
+                    <span class="text-[10px] text-muted font-label-caps tracking-wider">${escapeHtml(dirLabel)}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="text-muted flex items-center gap-0.5 text-[11px]">${notifIcons.join('')}</span>
+                    <button class="text-muted hover:text-error p-1 transition-colors" onclick="deleteWatchlistRule('${r.id}')">
+                        <span class="material-symbols-outlined text-[14px]">delete</span>
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 text-[10px] text-muted">
+                <span>Conf: ${r.min_confidence}–${r.max_confidence}%</span>
+                ${r.time_horizon ? `<span>Horizon: ${escapeHtml(r.time_horizon)}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleWatchlistForm() {
+    const form = document.getElementById('watchlist-form');
+    form.classList.toggle('hidden');
+}
+
+async function createWatchlistRule() {
+    if (!currentUser) return;
+    const errorEl = document.getElementById('wl-error');
+    errorEl.classList.add('hidden');
+
+    const ticker = document.getElementById('wl-ticker').value.trim().toUpperCase();
+    if (!ticker) {
+        errorEl.textContent = 'Ticker is required';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    const body = {
+        ticker,
+        direction: document.getElementById('wl-direction').value || null,
+        min_confidence: parseInt(document.getElementById('wl-min-conf').value, 10) || 0,
+        max_confidence: parseInt(document.getElementById('wl-max-conf').value, 10) || 100,
+        time_horizon: document.getElementById('wl-horizon').value || null,
+        notify_telegram: document.getElementById('wl-notify-telegram').checked,
+        notify_in_app: document.getElementById('wl-notify-inapp').checked
+    };
+
+    try {
+        const res = await fetch('/api/watchlist', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = data.error;
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        // Reset form and refresh list
+        document.getElementById('wl-ticker').value = '';
+        document.getElementById('wl-direction').value = '';
+        document.getElementById('wl-min-conf').value = '0';
+        document.getElementById('wl-max-conf').value = '100';
+        document.getElementById('wl-horizon').value = '';
+        document.getElementById('watchlist-form').classList.add('hidden');
+        fetchWatchlistRules();
+    } catch (e) {
+        errorEl.textContent = 'Network error';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function deleteWatchlistRule(id) {
+    if (!currentUser) return;
+    try {
+        await fetch('/api/watchlist/' + id, { method: 'DELETE', headers: authHeaders() });
+        fetchWatchlistRules();
+    } catch (e) {
+        console.error('Failed to delete watchlist rule:', e);
+    }
+}
+
+function openWatchlistForSignal(ticker, direction, confidence) {
+    if (!currentUser) {
+        toggleAuthPopover();
+        return;
+    }
+    // Open drawer and pre-fill form
+    if (!watchlistDrawerOpen) toggleWatchlistDrawer();
+    document.getElementById('watchlist-form').classList.remove('hidden');
+    document.getElementById('wl-ticker').value = ticker || '';
+    document.getElementById('wl-direction').value = direction || '';
+    document.getElementById('wl-min-conf').value = Math.max(0, (confidence || 0) - 10);
+    document.getElementById('wl-max-conf').value = '100';
+}

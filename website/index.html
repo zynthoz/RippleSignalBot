@@ -125,10 +125,259 @@
       scrollbar-width: thin;
       scrollbar-color: #222222 transparent;
     }
+    
+    @keyframes ticker {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
+
+    /* Override browser autofill styles for dark theme */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:focus, 
+    input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px #0A0A0A inset !important;
+        -webkit-text-fill-color: white !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+
+    #auth-left-panel::after {
+      content: '';
+      position: absolute;
+      bottom: 40px;
+      left: 0;
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(transparent, #0d0d0d);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #auth-left-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 120px;
+      background: linear-gradient(#0d0d0d, transparent);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #auth-right-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100vh;
+    }
   </style>
 </head>
 
-<body class="bg-canvas text-body h-screen w-screen overflow-hidden antialiased flex flex-col font-body-compact">
+<body class="bg-canvas text-body h-screen w-screen overflow-hidden antialiased font-body-compact">
+
+  <!-- ============================================================ -->
+  <!-- Auth Page (Full Screen) -->
+  <!-- ============================================================ -->
+  <div id="auth-page" class="absolute inset-0 z-[200] bg-canvas flex flex-col md:flex-row overflow-hidden hidden">
+    
+    <!-- Left Side: Live Data Vis -->
+    <div id="auth-left-panel" class="hidden md:flex flex-1 relative overflow-hidden bg-canvas">
+      <!-- Grid Pattern Background -->
+      <div class="absolute inset-0" style="background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 24px 24px;"></div>
+
+      <!-- Fake Signal Feed Column - Full Bleed -->
+      <div class="absolute inset-0 flex flex-col gap-2 pointer-events-none py-12 px-8 z-0 overflow-hidden">
+         
+         <div class="text-[11px] uppercase tracking-widest text-muted border-b border-hairline pb-2 mb-2 font-label-caps">SIGNAL FEED</div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">NVDA</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">Just now</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">Heavy institutional accumulation detected across derivative markets prior to Blackwell architecture launch.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BULLISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-secondary font-bold">85%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-secondary h-full rounded-full" style="width: 85%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">BTC</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">2m ago</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">On-chain analysis indicates miner capitulation phase concluding. Hash rate recovering toward ATH.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BULLISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-secondary font-bold">92%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-secondary h-full rounded-full" style="width: 92%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">TSLA</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">14m ago</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">Supply chain disruption in Berlin Gigafactory leading to anticipated production shortfalls in Q3.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-error"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BEARISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-error font-bold">78%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-error h-full rounded-full" style="width: 78%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">PLTR</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">31m ago</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">New defense contract finalized. Semantic analysis of CEO interview suggests upside guidance revision.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BULLISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-secondary font-bold">88%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-secondary h-full rounded-full" style="width: 88%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">AAPL</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">45m ago</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">Services revenue growth decelerating in key emerging markets due to regulatory headwinds.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-error"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BEARISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-error font-bold">65%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-error h-full rounded-full" style="width: 65%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div class="bg-surface-card border-l-[3px] border-y border-r border-hairline p-3 rounded-md border-l-transparent">
+             <div class="flex justify-between items-start mb-2">
+                 <div class="flex gap-1.5 flex-wrap"><span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">META</span></div>
+                 <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">1h ago</span>
+             </div>
+             <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90">Engagement metrics outperforming expectations. Ad load balancing optimizations proving highly effective.</div>
+             <div class="flex justify-between items-end">
+                 <div class="flex items-center gap-1.5">
+                     <div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+                     <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">BULLISH</span>
+                 </div>
+                 <div class="flex items-center gap-1.5">
+                     <span class="font-data-tabular text-[11px] text-secondary font-bold">81%</span>
+                     <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
+                         <div class="bg-secondary h-full rounded-full" style="width: 81%"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+      </div>
+      
+      <div class="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-canvas via-canvas/80 to-transparent z-10 pointer-events-none"></div>
+    </div>
+
+    <!-- Divider -->
+    <div class="hidden md:block border-l border-hairline relative z-20"></div>
+
+    <!-- Right Side: Clean Form -->
+    <div id="auth-right-panel" class="w-full md:w-[480px] shrink-0 bg-canvas relative px-8 items-center">
+      <!-- Grid Pattern Background on right side -->
+      <div class="absolute inset-0 pointer-events-none opacity-50" style="background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 24px 24px;"></div>
+      
+      <div class="w-full max-w-[320px] z-10 flex flex-col">
+          <!-- Logo & Branding -->
+          <div class="mb-12 flex flex-col items-start">
+              <svg width="40" height="24" viewBox="0 0 40 24" fill="none" stroke="white" stroke-width="3" xmlns="http://www.w3.org/2000/svg" class="mb-6 opacity-90">
+                  <path d="M 0 12 L 10 12 L 14 4 L 20 20 L 24 12 L 40 12" stroke-linecap="square" stroke-linejoin="miter"/>
+              </svg>
+              <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">MarketPulse AI</div>
+          </div>
+          
+          <div class="flex flex-col gap-6">
+              <div class="flex flex-col gap-2">
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Email</label>
+                  <input id="auth-email" type="email"
+                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+              </div>
+              
+              <div class="flex flex-col gap-2">
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Password</label>
+                  <input id="auth-password" type="password"
+                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+              </div>
+
+              <div class="flex flex-col gap-2 hidden" id="auth-display-name-container">
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Display Name</label>
+                  <input id="auth-display-name" type="text"
+                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+              </div>
+
+              <div id="auth-error" class="hidden text-error text-[11px] font-medium mt-[-10px]"></div>
+              
+              <div class="flex flex-col mt-4 gap-4">
+                  <button onclick="authLogin()" id="auth-login-btn"
+                  class="w-full bg-[#2563eb] text-white text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 border-none hover:bg-blue-600 transition-colors">LOG IN</button>
+                  
+                  <button onclick="authRegister()" id="auth-register-btn"
+                  class="w-full bg-[#2563eb] text-white text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 border-none hover:bg-blue-600 transition-colors hidden">CREATE ACCOUNT</button>
+              
+                  <button onclick="toggleAuthMode()" id="auth-toggle-btn" 
+                  class="w-full bg-transparent border border-white/10 text-white/50 text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 hover:text-white/80 transition-colors">Register instead</button>
+              </div>
+          </div>
+      </div>
+    </div>
+
+    <!-- Ambient Bottom Ticker Tape -->
+    <div class="absolute bottom-0 left-0 w-full overflow-hidden whitespace-nowrap bg-[#000000] border-t border-hairline/30 py-1.5 z-[210] pointer-events-none">
+      <div class="inline-block animate-[ticker_60s_linear_infinite] text-[10px] font-mono tracking-wider text-muted/50" style="animation: ticker 60s linear infinite;">
+          NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Dashboard -->
+  <div id="app-dashboard" class="flex flex-col h-full w-full hidden">
   <!-- TopNavBar -->
   <header class="z-50 bg-canvas border-b border-hairline flex justify-between items-center w-full px-4 shrink-0"
     style="height: 48px;">
@@ -137,23 +386,165 @@
         MarketPulse AI
       </div>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-1">
       <span
-        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer p-2 rounded hover:bg-surface-card-elevated"
         style='font-variation-settings: "FILL" 0;'>sensors</span>
+
+      <!-- Notification Bell -->
+      <div class="relative" id="notif-trigger">
+        <span
+          class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer p-2 rounded hover:bg-surface-card-elevated"
+          style='font-variation-settings: "FILL" 0;' onclick="toggleNotificationPopover()">notifications</span>
+        <div id="notif-badge"
+          class="hidden absolute top-1 right-1 w-4 h-4 bg-error text-on-error rounded-full text-[9px] font-bold flex items-center justify-center pointer-events-none">
+          0</div>
+      </div>
+
+      <!-- Auth / User -->
+      <div class="relative" id="auth-trigger">
+        <span id="auth-icon"
+          class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer p-2 rounded hover:bg-surface-card-elevated"
+          style='font-variation-settings: "FILL" 0;' onclick="toggleAuthPopover()">person</span>
+      </div>
+
+      <!-- Watchlist Drawer Trigger -->
       <span
-        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-        style='font-variation-settings: "FILL" 0;'>settings</span>
-      <span
-        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-        style='font-variation-settings: "FILL" 0;'>terminal</span>
+        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer p-2 rounded hover:bg-surface-card-elevated"
+        style='font-variation-settings: "FILL" 0;' onclick="toggleWatchlistDrawer()">tune</span>
     </div>
   </header>
+
+  <!-- ============================================================ -->
+  <!-- User Profile Popover -->
+  <!-- ============================================================ -->
+  <div id="auth-popover" class="hidden fixed z-[100] bg-surface-card border border-hairline rounded-lg shadow-xl shadow-black/50 overflow-hidden" style="top: 52px; right: 80px; width: 320px;">
+
+    <!-- Logged In State -->
+    <div id="auth-user-view" class="">
+      <div class="px-4 border-b border-hairline flex items-center justify-between" style="height: 48px;">
+        <h3 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Account</h3>
+        <button onclick="authLogout()"
+          class="text-muted hover:text-error text-[11px] font-label-caps tracking-wider transition-colors">LOG OUT</button>
+      </div>
+      <div class="p-4 flex flex-col gap-3">
+        <div class="flex items-center gap-3">
+          <div id="auth-avatar"
+            class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm">?
+          </div>
+          <div>
+            <div id="auth-user-name" class="text-body-strong text-sm font-medium"></div>
+            <div id="auth-user-email" class="text-muted text-xs"></div>
+          </div>
+        </div>
+        <div class="border-t border-hairline pt-3">
+          <div class="text-[11px] text-muted font-label-caps tracking-widest mb-2 uppercase">TELEGRAM LINK CODE</div>
+          <div class="flex items-center gap-2">
+            <code id="auth-telegram-code"
+              class="bg-canvas border border-hairline rounded px-3 py-1.5 text-primary font-mono text-sm flex-1 text-center tracking-widest"></code>
+            <div id="auth-telegram-status" class="text-[11px] text-muted"></div>
+          </div>
+          <div class="text-muted text-[10px] mt-2">Send <code class="text-primary">/linktelegram &lt;code&gt;</code> to the bot to connect Telegram notifications.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- Notification Popover -->
+  <!-- ============================================================ -->
+  <div id="notification-popover" class="hidden fixed z-[100] bg-surface-card border border-hairline rounded-lg shadow-xl shadow-black/50 overflow-hidden" style="top: 52px; right: 120px; width: 360px; max-height: 440px;">
+    <div class="px-4 border-b border-hairline flex items-center justify-between shrink-0" style="height: 48px;">
+      <h3 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Notifications</h3>
+      <button onclick="markAllNotificationsRead()"
+        class="text-primary hover:text-primary-active text-[11px] font-label-caps tracking-wider transition-colors">MARK ALL READ</button>
+    </div>
+    <div id="notification-list" class="overflow-y-auto" style="max-height: 392px;">
+      <div class="p-6 text-center text-muted text-sm">
+        <span class="material-symbols-outlined text-[24px] text-muted/30 block mb-2">notifications_none</span>
+        No notifications yet.
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- Watchlist Drawer + Backdrop -->
+  <!-- ============================================================ -->
+  <div id="watchlist-backdrop" class="hidden fixed inset-0 bg-black/40 z-[90]" onclick="toggleWatchlistDrawer()"></div>
+  <div id="watchlist-drawer" class="fixed top-0 right-0 h-full bg-surface-card border-l border-hairline shadow-2xl shadow-black/50 z-[95] flex flex-col transition-transform duration-300 translate-x-full" style="width: 380px;">
+    <div class="px-4 border-b border-hairline flex items-center justify-between shrink-0" style="height: 48px;">
+      <h3 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Watchlist Rules</h3>
+      <span class="material-symbols-outlined text-muted hover:text-on-surface cursor-pointer transition-colors" onclick="toggleWatchlistDrawer()">close</span>
+    </div>
+
+    <!-- Watchlist Items List -->
+    <div id="watchlist-items" class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 bg-canvas-deep">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Add Rule Form (collapsed by default) -->
+    <div id="watchlist-form-container" class="border-t border-hairline bg-surface-card">
+      <button id="watchlist-add-toggle" onclick="toggleWatchlistForm()"
+        class="w-full px-4 flex items-center justify-center gap-2 text-primary hover:text-primary-active font-label-caps text-[11px] tracking-wider transition-colors" style="height: 48px;">
+        <span class="material-symbols-outlined text-[16px]">add</span> ADD RULE
+      </button>
+      <div id="watchlist-form" class="hidden p-4 pt-0 flex flex-col gap-3 border-t border-hairline">
+        <div>
+          <label class="text-[10px] text-muted font-label-caps tracking-widest uppercase block mb-1">Ticker *</label>
+          <input id="wl-ticker" type="text" placeholder="e.g. AAPL" maxlength="10"
+            class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm px-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted/50 transition-all uppercase">
+        </div>
+        <div>
+          <label class="text-[10px] text-muted font-label-caps tracking-widest uppercase block mb-1">Direction</label>
+          <select id="wl-direction"
+            class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm px-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+            <option value="">Any</option>
+            <option value="BULLISH">Bullish</option>
+            <option value="BEARISH">Bearish</option>
+            <option value="MIXED">Mixed</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="text-[10px] text-muted font-label-caps tracking-widest uppercase block mb-1">Min Conf.</label>
+            <input id="wl-min-conf" type="number" min="0" max="100" value="0"
+              class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm px-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+          </div>
+          <div class="flex-1">
+            <label class="text-[10px] text-muted font-label-caps tracking-widest uppercase block mb-1">Max Conf.</label>
+            <input id="wl-max-conf" type="number" min="0" max="100" value="100"
+              class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm px-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] text-muted font-label-caps tracking-widest uppercase block mb-1">Time Horizon</label>
+          <select id="wl-horizon"
+            class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm px-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+            <option value="">Any</option>
+            <option value="short-term">Short-term</option>
+            <option value="medium-term">Medium-term</option>
+            <option value="long-term">Long-term</option>
+          </select>
+        </div>
+        <div class="flex gap-3 items-center">
+          <label class="flex items-center gap-2 text-sm text-body-strong cursor-pointer">
+            <input id="wl-notify-telegram" type="checkbox" checked class="accent-primary"> Telegram
+          </label>
+          <label class="flex items-center gap-2 text-sm text-body-strong cursor-pointer">
+            <input id="wl-notify-inapp" type="checkbox" checked class="accent-primary"> In-App
+          </label>
+        </div>
+        <div id="wl-error" class="hidden text-error text-xs"></div>
+        <button onclick="createWatchlistRule()"
+          class="w-full bg-primary text-on-primary font-label-caps text-[11px] py-2.5 rounded-md hover:bg-primary-active transition-colors tracking-wider">SAVE RULE</button>
+      </div>
+    </div>
+  </div>
   <!-- Main Workspace (Design System Governed) -->
   <main class="flex-1 p-4 flex gap-4 bg-canvas overflow-hidden relative justify-between w-full">
     <!-- Left Sidebar: Signal Feed -->
     <section
-      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-1">
+      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-1 overflow-hidden">
       <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0" style="height: 48px;">
         <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Signal Feed</h2>
       </div>
@@ -197,11 +588,13 @@
     </section>
     <!-- Right Detail Panel -->
     <section id="analysis-node"
-      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[1.2]">
+      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[1.2] overflow-hidden">
       <!-- Populated by app.js -->
     </section>
   </main>
-  <script src="app.js"></script>
+  </div> <!-- End App Dashboard -->
+
+  <script src="/app.js"></script>
 </body>
 
 </html>
