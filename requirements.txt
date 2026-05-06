@@ -5,3 +5,4 @@ redis
 psycopg2-binary
 python-dotenv
 SQLAlchemy
+yfinance

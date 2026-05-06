@@ -1,0 +1,181 @@
+# MarketPulse AI — Next Sprint Plan
+
+## Overview
+Four tracks. Done in order. Nothing from track 2 starts until track 1 is stable. Nothing from track 3 starts until track 2 has data. Track 4 runs in parallel with 3 but only on the frontend.
+
+---
+
+## Track 1 — Signal Validation Layer
+Use the article publish date (not API ingest date) to pull historical prices via Yahoo Finance free API. Simulate entry at open price on publish date and track performance at 24hr, 1 week, and 1 month. Display this directly on the signal card so users see proof the signal worked. This turns our delay problem into a transparency feature.
+
+### Subtasks
+
+**1.1 — Extract and store article publish date**
+- Audit current signal records — confirm `publishedAt` from article object is being stored in PostgreSQL
+- If not stored, add `article_published_at` column to signals table
+- Backfill existing signals where possible from raw article data in Redis
+- Do not confuse with `created_at` (API ingest time) — these are separate fields
+- **Gate: all new signals must store `article_published_at` before proceeding**
+
+**1.2 — Yahoo Finance price fetcher**
+- Build a standalone Python utility `price_fetcher.py`
+- Input: ticker symbol + date
+- Output: open price, close price, high, low for that date
+- Use `yfinance` library — free, no API key required
+- Handle edge cases: weekends, market holidays, missing data, delisted tickers
+- Test independently before wiring into the signal pipeline
+- **Gate: fetcher must handle errors gracefully and never crash the main worker**
+
+**1.3 — Simulate entry and track performance**
+- On signal creation, schedule three price checks: +24hr, +1 week, +1 month from `article_published_at`
+- Store results in a new `signal_performance` table: `signal_id`, `check_interval`, `entry_price`, `check_price`, `return_pct`, `direction_correct` (boolean)
+- `direction_correct` = true if BULLISH signal and price went up, BEARISH and price went down, etc.
+- For MIXED signals: check each individual ticker separately
+- Run as a background cron job — do not block signal creation
+- **Gate: performance records must not affect signal generation speed**
+
+**1.4 — Display on signal card**
+- Add a `Performance` section to the Analysis Node panel
+- Show entry price, current/final price, return %, and a ✓ or ✗ indicator per ticker
+- Only show if performance data exists — hide section entirely if checks are still pending
+- Label clearly: `"Based on price at article publish date"`
+- **Gate: display is read-only, no logic, just renders what the DB returns**
+
+---
+
+## Track 2 — Accuracy Dashboard
+Track and surface win rates broken down by sector, confidence tier, and source quality. This becomes our credibility layer — if our 80%+ confidence signals are actually right 80% of the time, that's the main thing we put on the landing page. No accuracy data = no trust.
+
+> **Dependency: Track 1.3 must have at least 2 weeks of performance data before Track 2 is meaningful**
+
+### Subtasks
+
+**2.1 — Accuracy aggregation queries**
+- Write PostgreSQL queries that aggregate `signal_performance` data by:
+  - Overall win rate
+  - Win rate by sector (use existing sector/geography field from signal)
+  - Win rate by confidence tier (40-60 / 60-75 / 75-90 / 90+)
+  - Win rate by source quality (map source domain to tier as discussed)
+  - Win rate by time horizon (intraday / short-term / medium-term)
+- Expose via a new REST endpoint `GET /api/accuracy`
+- Cache result for 1 hour — no need to recalculate on every request
+
+**2.2 — Accuracy dashboard page**
+- Add a new `/accuracy` route to the web app
+- Show overall win rate prominently at the top — big number, impossible to miss
+- Break down below by sector, confidence tier, source quality
+- Use simple bar charts — no fancy libraries needed, CSS bars are fine
+- Show sample size next to each stat so users know if it's statistically meaningful
+- Add a disclaimer: `"Past signal accuracy does not guarantee future performance"`
+
+**2.3 — Surface accuracy on landing/login page**
+- Once win rate data exists, add a single stat to the login page left panel
+- Example: `"83% signal accuracy across 1,200 signals"`
+- Only show if sample size > 50 signals — hide until then
+
+---
+
+## Track 3 — Topology as Primary View
+Make the topology the destination not the decoration. When a user opens a signal it should expand to full screen. Add live price overlays on every node showing performance since signal publish date. Add confidence decay on edges — thicker near root cause, thinner and dashed further out. Add node expansion so clicking any ticker loads its own connected signals. The goal is that a user can look at the topology and understand the full market story without reading a single line of text.
+
+> **Dependency: Track 1.2 price fetcher must be complete so live prices can be shown on nodes**
+
+### Subtasks
+
+**3.1 — Full screen topology mode**
+- When user clicks a signal in the feed, topology expands to fill the full center + right panel area
+- Analysis node slides in as an overlay/sidebar rather than replacing the topology
+- Add an `[Expand]` button to the current topology panel as a secondary entry point
+- Preserve existing three-panel layout as default — full screen is an opt-in mode
+- **Gate: must not break existing layout or signal feed navigation**
+
+**3.2 — Live price overlays on nodes**
+- Each ticker node displays: ticker symbol, current price, % change since signal publish date
+- Color the % change: green if positive, red if negative, grey if flat
+- Pull prices from Track 1.2 price fetcher — same utility, called with current date
+- Update on a 5-minute polling interval — not real-time WebSocket, polling is fine
+- Show a loading skeleton on nodes while prices are fetching
+- **Gate: price fetch failures must show a dash `—` not crash the node**
+
+**3.3 — Confidence decay on edges**
+- Edge thickness maps to connection confidence: high = 3px solid, medium = 2px solid, low = 1px dashed
+- Edge opacity decreases as distance from root cause increases
+- Root cause → first order: 100% opacity
+- First order → second order: 60% opacity
+- Second order → leaf nodes: 35% opacity
+- Implement as a D3 edge weight calculation on graph render
+
+**3.4 — Expandable nodes**
+- Clicking any ticker node shows a mini panel: ticker name, current price, all signals currently affecting this ticker
+- Signals listed as small pills: direction color + headline truncated to 6 words
+- Clicking a signal pill navigates to that signal's topology
+- This creates the web of interconnected signals — users can explore market relationships freely
+- **Gate: node expansion must not trigger a full page reload — client-side only**
+
+**3.5 — Propagation status indicators**
+- Each causal chain step gets a status badge: `Confirmed`, `In Progress`, `Pending`
+- `Confirmed` = price moved in predicted direction by >2% since signal publish
+- `In Progress` = price moved <2% in predicted direction
+- `Pending` = no meaningful price movement yet
+- Display on both the topology edges and the causal chain steps in the analysis panel
+
+---
+
+## Track 4 — Optimize for Casual Investors
+Strip the jargon everywhere. Every signal gets a plain English "what this means" summary at the top before any technical analysis. Reframe alerts as "stories to watch" not signals. Weekly digest email showing top 3 market stories of the week with their outcomes. The topology is our core differentiator here — casual investors want to understand why markets move, not just get a ticker and a direction. We are the tool that explains it visually.
+
+> **Can run in parallel with Track 3 frontend work. No backend dependencies.**
+
+### Subtasks
+
+**4.1 — Plain English summary field**
+- Add a `plain_english_summary` field to the AI signal prompt
+- Prompt instruction: `"Write a 2-sentence plain English explanation of this signal as if explaining to someone who does not work in finance. No jargon, no ticker symbols, no financial terms."`
+- Store in signals table
+- Display at the very top of the Analysis Node panel above all other fields
+- Label it: `"What's happening"` not `"Summary"` or `"AI Reasoning"`
+
+**4.2 — Language audit across the entire UI**
+- Go through every label, button, tooltip, and section header
+- Replace: `Signal` → `Story`, `Bearish` → `Likely to fall`, `Bullish` → `Likely to rise`, `Time Horizon` → `When to watch`, `Confidence` → `How certain`
+- Keep the technical terms available on hover/expand for users who want them
+- Do not rename things in the database or API — frontend display only
+
+**4.3 — Reframe Telegram alerts**
+- Change Telegram message header from `BULLISH — NVDA, AAPL` to `📖 New story: [headline]`
+- Lead with plain English summary, put tickers and direction below
+- Add a `Why this matters` section using the `plain_english_summary` field
+- Keep the full technical breakdown available but below the fold
+
+**4.4 — Weekly digest**
+- Every Sunday at 9am, send email digest to subscribed users
+- Content: top 3 stories of the week by confidence score
+- For each story: headline, plain English summary, tickers, and outcome (did the signal play out?)
+- Outcome data comes from Track 1 performance tracking
+- Use a simple transactional email service — Resend or Nodemailer
+- **Gate: only build after Track 1 performance data exists so outcomes can be shown**
+
+---
+
+## What We Are Not Building Right Now
+Auto execution, day trader features, real-time data. We prove the signals are accurate first, then we talk about acting on them.
+
+---
+
+## Order of Execution
+
+```
+Week 1-2:   Track 1 (1.1 → 1.2 → 1.3 → 1.4)
+Week 3:     Track 2 (begins once Track 1 has data flowing)
+Week 3-4:   Track 3 + Track 4 in parallel
+Week 5:     Track 2.3 (accuracy on landing page, once sample size is sufficient)
+Week 5:     Track 4.4 (weekly digest, once Track 1 performance data exists)
+```
+
+---
+
+## Rules
+- Nothing ships that breaks the existing signal feed or analysis panel
+- Every new DB column gets a migration file — no manual schema changes
+- Price fetcher errors are always silent — never surface a crash to the user
+- Track 3 full screen mode is additive — the existing layout must still work

@@ -233,13 +233,21 @@ async function start() {
         const limit = parseInt(requestUrl.searchParams.get('limit') || '50', 10);
         const offset = parseInt(requestUrl.searchParams.get('offset') || '0', 10);
 
-        let query = 'SELECT * FROM signals';
+        let query = `
+          SELECT s.*, 
+            COALESCE(
+              (SELECT json_agg(row_to_json(sp)) 
+               FROM signal_performance sp 
+               WHERE sp.signal_id = s.id), 
+            '[]') as performance
+          FROM signals s
+        `;
         const values = [];
         if (direction && direction !== 'ALL') {
-          query += ' WHERE direction = $1';
+          query += ' WHERE s.direction = $1';
           values.push(direction);
         }
-        query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        query += ` ORDER BY s.created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
         values.push(limit, offset);
 
         const result = await pool.query(query, values);
@@ -256,7 +264,16 @@ async function start() {
       if (!id) return sendJson(400, { error: 'Missing ID' });
       
       try {
-        const result = await pool.query('SELECT * FROM signals WHERE id = $1', [id]);
+        const result = await pool.query(`
+          SELECT s.*, 
+            COALESCE(
+              (SELECT json_agg(row_to_json(sp)) 
+               FROM signal_performance sp 
+               WHERE sp.signal_id = s.id), 
+            '[]') as performance
+          FROM signals s
+          WHERE s.id = $1
+        `, [id]);
         if (result.rows.length === 0) {
           sendJson(404, { error: 'Signal not found' });
         } else {

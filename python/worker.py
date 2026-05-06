@@ -14,6 +14,8 @@ import redis
 import psycopg2
 from psycopg2.extras import Json
 from google import genai
+import threading
+from performance_tracker import track_performance
 
 
 MAX_SIGNAL_AGE_HOURS = int(os.getenv('MAX_SIGNAL_AGE_HOURS', '72'))
@@ -47,6 +49,21 @@ def ensure_signal_columns(conn_str: str) -> None:
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS thesis_risks JSONB',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS catalyst_chain JSONB',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS relationship_graph JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS article_published_at TIMESTAMP WITH TIME ZONE',
+        '''
+        CREATE TABLE IF NOT EXISTS signal_performance (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            signal_id UUID NOT NULL REFERENCES signals(id) ON DELETE CASCADE,
+            ticker VARCHAR(10) NOT NULL,
+            check_interval VARCHAR(20) NOT NULL,
+            entry_price NUMERIC,
+            check_price NUMERIC,
+            return_pct NUMERIC,
+            direction_correct BOOLEAN,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(signal_id, ticker, check_interval)
+        )
+        '''
     ]
 
     conn = None
@@ -717,14 +734,14 @@ def save_signal(conn_str: str, signal: dict) -> str:
                 source_attribution, geography, market_consensus_divergence,
                 investment_thesis, first_order_effects, second_order_effects,
                 positively_affected, negatively_affected, thesis_risks, catalyst_chain,
-                relationship_graph
+                relationship_graph, article_published_at
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s, %s,
-                %s
+                %s, %s
             ) RETURNING id
         """
         values = (
@@ -752,6 +769,7 @@ def save_signal(conn_str: str, signal: dict) -> str:
             Json(signal.get('thesis_risks') or []),
             Json(signal.get('catalyst_chain') or []),
             Json(signal.get('relationship_graph') or {}),
+            parse_iso_datetime(signal.get('article_published_at')) if signal.get('article_published_at') else None,
         )
         cur.execute(query, values)
         signal_id = cur.fetchone()[0]
@@ -789,6 +807,8 @@ def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
             'source_url': signal.get('source_url', ''),
             'source_headline': signal.get('source_headline', ''),
             'created_at': datetime.now(timezone.utc).isoformat(),
+            'article_published_at': signal.get('article_published_at', ''),
+            'performance': json.dumps(signal.get('performance', [])),
         }
         r.xadd(stream, payload)
     except Exception as e:
@@ -905,6 +925,7 @@ def main() -> int:
                         'source_url': article.get('url', ''),
                         'source_headline': title,
                         'source_name': article.get('source', 'unknown'),
+                        'article_published_at': article.get('publishedAt', ''),
                     })
 
                     if not signal.get('tickers'):
@@ -914,6 +935,20 @@ def main() -> int:
 
                     sid = save_signal(DATABASE_URL, signal)
                     if sid:
+                        # Synchronously track performance before publishing
+                        # This ensures matured signals (backdated) show performance immediately
+                        try:
+                            track_performance(sid)
+                            
+                            # Fetch the newly created performance records to include in the publish payload
+                            conn = psycopg2.connect(DATABASE_URL)
+                            with conn.cursor() as cur:
+                                cur.execute("SELECT row_to_json(sp) FROM signal_performance sp WHERE signal_id = %s", (sid,))
+                                signal['performance'] = [r[0] for r in cur.fetchall()]
+                            conn.close()
+                        except Exception as e:
+                            print(f"  Warning: Performance tracking failed before publish: {e}")
+
                         publish_signal(r, OUT_STREAM, signal, sid)
                         print(f'  saved signal {sid} -> {signal.get("tickers")}')
 

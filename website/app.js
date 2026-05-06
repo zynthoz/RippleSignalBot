@@ -467,6 +467,56 @@ function formatReasoning(text) {
     return paragraphs.map(p => `<p class="text-[13px] leading-relaxed text-on-surface-variant mb-2 last:mb-0">${escapeHtml(p)}</p>`).join('');
 }
 
+function renderPerformanceSection(signal) {
+    let perfData = [];
+    if (signal.performance) {
+        if (typeof signal.performance === 'string') {
+            try { perfData = JSON.parse(signal.performance); } catch(e){}
+        } else if (Array.isArray(signal.performance)) {
+            perfData = signal.performance;
+        }
+    }
+    
+    perfData = perfData.filter(p => p && p.ticker);
+    if (perfData.length === 0) return '';
+    
+    const rowsHtml = perfData.map(p => {
+        const isCorrect = p.direction_correct;
+        const icon = isCorrect === true ? '<span class="text-secondary font-bold">✓</span>' : isCorrect === false ? '<span class="text-error font-bold">✗</span>' : '<span class="text-muted font-bold">-</span>';
+        const returnSign = p.return_pct > 0 ? '+' : '';
+        const returnColor = p.return_pct > 0 ? 'secondary' : p.return_pct < 0 ? 'error' : 'muted';
+        const entry = parseFloat(p.entry_price || 0).toFixed(2);
+        const check = parseFloat(p.check_price || 0).toFixed(2);
+        const retPct = parseFloat(p.return_pct || 0).toFixed(2);
+        
+        return `
+            <div class="flex items-center justify-between py-2 border-b border-hairline last:border-0">
+                <div class="flex items-center gap-2">
+                    <span class="font-data-tabular font-bold text-[13px]">${escapeHtml(p.ticker)}</span>
+                    <span class="text-[10px] text-muted bg-surface-card-elevated px-1.5 py-0.5 rounded uppercase tracking-wider">${escapeHtml(p.check_interval)}</span>
+                </div>
+                <div class="flex items-center gap-3 text-[12px] font-data-tabular">
+                    <span class="text-muted" title="Entry Price">E: $${entry}</span>
+                    <span class="text-muted" title="Check Price">C: $${check}</span>
+                    <span class="text-${returnColor} font-bold min-w-[50px] text-right">${returnSign}${retPct}%</span>
+                    <div class="w-4 text-center ml-1">${icon}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+            <!-- Performance -->
+            <div class="flex flex-col mb-6">
+                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-1 uppercase px-1">PERFORMANCE</div>
+                <div class="text-[10px] text-muted/70 px-1 mb-2 italic">Based on price at article publish date</div>
+                <div class="bg-surface-card border border-hairline rounded-lg px-4 py-1">
+                    ${rowsHtml}
+                </div>
+            </div>
+    `;
+}
+
 function renderAnalysisNode(signal) {
     const isBull = signal.direction === 'BULLISH';
     const isBear = signal.direction === 'BEARISH';
@@ -584,6 +634,8 @@ function renderAnalysisNode(signal) {
                     ${catalystHtml}
                 </div>
             </div>
+
+            ${renderPerformanceSection(signal)}
 
             <!-- AI Reasoning -->
             <div class="flex flex-col mb-20">
