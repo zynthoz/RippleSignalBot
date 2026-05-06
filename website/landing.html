@@ -1,25 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Argus AI | Market Intelligence Traced Instantly</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
     <link rel="icon" type="image/png" href="assets/logo1.png">
     <style>
         :root {
             --colors-primary: #0007cd;
-            --colors-primary-glow: #1a26ff;
-            --colors-canvas: #0f0f0f;
+            --colors-primary-glow: rgba(26, 38, 255, 0.4);
+            --colors-canvas: #0a0a0a;
             --colors-canvas-deep: #000000;
-            --colors-surface-card: #181818;
-            --colors-surface-card-elevated: #222222;
+            --colors-surface-card: #141414;
+            --colors-surface-card-elevated: #1e1e1e;
             --colors-ink: #ffffff;
-            --colors-body: #a8a8a8;
+            --colors-body: #a0a0a0;
             --colors-hairline: #222222;
-            --spacing-section: 96px;
+            --spacing-section: 120px;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         * {
@@ -37,7 +44,9 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             font-weight: 500;
             letter-spacing: -0.02em;
         }
@@ -93,31 +102,36 @@
         .btn-primary {
             background: var(--colors-primary);
             color: white;
-            padding: 10px 18px;
+            padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
             border: none;
             cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 0 rgba(0, 7, 205, 0);
         }
 
         .btn-primary:hover {
             background: #0005a3;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 7, 205, 0.4);
         }
 
         .btn-outline {
             border: 1px solid var(--colors-hairline);
-            padding: 10px 18px;
+            padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
+            background: transparent;
         }
 
         .btn-outline:hover {
-            background: var(--colors-surface-card);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: #444;
+            transform: translateY(-2px);
         }
 
         /* Hero */
@@ -142,8 +156,17 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
-            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+
+            0%,
+            100% {
+                opacity: 0.5;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            50% {
+                opacity: 0.8;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
         }
 
         .badge-pill {
@@ -205,6 +228,8 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
             color: var(--colors-body);
+            display: flex;
+            flex-direction: column;
         }
 
         .pane-header {
@@ -213,6 +238,28 @@
             font-size: 11px;
             display: flex;
             justify-content: space-between;
+        }
+
+        .pane-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .confidence-value {
+            font-size: 64px;
+            font-weight: 500;
+            color: var(--colors-primary);
+            display: flex;
+            align-items: baseline;
+        }
+
+        .confidence-percent {
+            font-size: 24px;
+            margin-left: 4px;
+            opacity: 0.5;
         }
 
         /* Ticker Tape */
@@ -233,8 +280,13 @@
         }
 
         @keyframes ticker {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-50%);
+            }
         }
 
         .ticker-item {
@@ -244,9 +296,18 @@
             gap: 8px;
         }
 
-        .ticker-symbol { font-weight: 600; color: white; }
-        .ticker-dir.up { color: #33d17a; }
-        .ticker-dir.down { color: #ff4d4d; }
+        .ticker-symbol {
+            font-weight: 600;
+            color: white;
+        }
+
+        .ticker-dir.up {
+            color: #33d17a;
+        }
+
+        .ticker-dir.down {
+            color: #ff4d4d;
+        }
 
         /* Sections */
         section {
@@ -322,8 +383,15 @@
             background: #1a1a2e;
         }
 
-        .pipeline-step h3 { font-size: 16px; margin-bottom: 8px; }
-        .pipeline-step p { font-size: 13px; color: var(--colors-body); }
+        .pipeline-step h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .pipeline-step p {
+            font-size: 13px;
+            color: var(--colors-body);
+        }
 
         .pipeline-line {
             position: absolute;
@@ -348,8 +416,13 @@
         }
 
         @keyframes flow {
-            0% { left: 0; }
-            100% { left: 100%; }
+            0% {
+                left: 0;
+            }
+
+            100% {
+                left: 100%;
+            }
         }
 
         /* Screenshot */
@@ -357,7 +430,7 @@
             border-radius: 16px;
             overflow: hidden;
             border: 1px solid var(--colors-hairline);
-            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
             background: #000;
             transform: translateY(40px);
             opacity: 0;
@@ -389,7 +462,14 @@
         }
 
         .feature-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-8px);
+            border-color: var(--colors-primary);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 7, 205, 0.2);
+        }
+
+        .stat-card:hover {
+            border-color: var(--colors-primary);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 7, 205, 0.2);
         }
 
         .feature-icon {
@@ -397,8 +477,55 @@
             margin-bottom: 16px;
         }
 
-        .feature-card h3 { margin-bottom: 12px; }
-        .feature-card p { color: var(--colors-body); font-size: 15px; }
+        .feature-card h3 {
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--colors-body);
+            font-size: 15px;
+        }
+
+        @keyframes pulse-live {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 7, 205, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(0, 7, 205, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 7, 205, 0);
+            }
+        }
+
+        .pulse-nav {
+            animation: pulse-live 2s infinite;
+        }
+
+        .typewriter-text {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Typewriter Cursor */
+        .typewriter-text::after {
+            content: '_';
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+
+            from,
+            to {
+                color: transparent;
+            }
+
+            50% {
+                color: var(--colors-primary);
+            }
+        }
 
         /* CTA Band */
         .cta-band {
@@ -472,25 +599,46 @@
         }
 
         @media (max-width: 900px) {
-            .hero h1 { font-size: 48px; }
-            .terminal-grid { grid-template-columns: 1fr; }
-            .stats-grid, .feature-grid { grid-template-columns: 1fr; }
-            .pipeline-container { flex-direction: column; gap: 24px; }
-            .pipeline-step { width: 100%; }
-            .pipeline-line { display: none; }
+            .hero h1 {
+                font-size: 48px;
+            }
+
+            .terminal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid,
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline-container {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .pipeline-step {
+                width: 100%;
+            }
+
+            .pipeline-line {
+                display: none;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <nav id="navbar">
         <div class="logo">
-            <img src="assets/logo3.png" alt="Argus AI Logo" style="height: 36px; display: block;">
+            <img src="assets/logo3.png" alt="Argus AI Logo" style="height: 32px; display: block;">
         </div>
         <div class="nav-links">
-            <a href="/dashboard">Dashboard</a>
-            <a href="#">Telegram</a>
-            <a href="/dashboard" class="btn-primary">Get Started</a>
+            <a href="#features">Features</a>
+            <a href="#pipeline">Pipeline</a>
+            <a href="https://t.me/ArgusAISignalBot" target="_blank">Telegram</a>
+            <a href="/dashboard" class="btn-primary" style="margin-left: 8px;">Launch Dashboard</a>
         </div>
     </nav>
 
@@ -499,43 +647,46 @@
         <div class="container">
             <div class="badge-pill">⚡ AI-Powered · Real-Time Signals</div>
             <h1 class="reveal">Every Market Event.<br>Traced. Instantly.</h1>
-            <p class="reveal">Stop guessing. Argus AI parses global news through multi-hop causal chains to deliver high-conviction trading signals before the market reacts.</p>
+            <p class="reveal">Stop guessing. Argus AI parses global news through multi-hop causal chains to deliver
+                high-conviction trading signals before the market reacts.</p>
             <div class="hero-btns reveal">
                 <a href="/dashboard" class="btn-primary">Launch Dashboard</a>
-                <a href="#" class="btn-outline">Try Telegram Bot →</a>
+                <a href="https://t.me/ArgusAISignalBot" target="_blank" class="btn-outline">Try Telegram Bot →</a>
             </div>
 
             <div class="terminal-grid reveal">
                 <div class="terminal-pane">
                     <div class="pane-header"><span>SIGNAL_FEED</span><span>LIVE</span></div>
-                    <div id="typewriter1"></div>
+                    <div id="typewriter1" class="typewriter-text"></div>
                 </div>
                 <div class="terminal-pane">
                     <div class="pane-header"><span>CAUSAL_TOPOLOGY</span><span>DASHBOARD</span></div>
-                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                        <svg width="120" height="120" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="4" fill="#0007cd">
+                    <div class="pane-content">
+                        <svg width="120" height="120" viewBox="0 0 100 100" style="opacity: 0.8;">
+                            <circle cx="50" cy="50" r="4" fill="var(--colors-primary)">
                                 <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
                                 <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" />
                             </circle>
-                            <line x1="50" y1="50" x2="20" y2="20" stroke="#222" stroke-width="1" />
-                            <line x1="50" y1="50" x2="80" y2="30" stroke="#222" stroke-width="1" />
-                            <line x1="50" y1="50" x2="70" y2="80" stroke="#222" stroke-width="1" />
-                            <circle cx="20" cy="20" r="3" fill="#333" />
-                            <circle cx="80" cy="30" r="3" fill="#333" />
-                            <circle cx="70" cy="80" r="3" fill="#333" />
+                            <line x1="50" y1="50" x2="20" y2="20" stroke="#333" stroke-width="1" />
+                            <line x1="50" y1="50" x2="80" y2="30" stroke="#333" stroke-width="1" />
+                            <line x1="50" y1="50" x2="70" y2="80" stroke="#333" stroke-width="1" />
+                            <circle cx="20" cy="20" r="3" fill="#444" />
+                            <circle cx="80" cy="30" r="3" fill="#444" />
+                            <circle cx="70" cy="80" r="3" fill="#444" />
                         </svg>
                     </div>
                 </div>
                 <div class="terminal-pane">
                     <div class="pane-header"><span>CONFIDENCE_ENGINE</span><span>STABLE</span></div>
-                    <div style="font-size: 64px; color: var(--colors-primary); display: flex; justify-content: center; align-items: center; height: 100%;">
-                        <span id="counter-confidence">0</span>%
+                    <div class="pane-content">
+                        <div class="confidence-value">
+                            <span id="counter-confidence">0</span><span class="confidence-percent">%</span>
+                        </div>
                     </div>
                 </div>
                 <div class="terminal-pane">
                     <div class="pane-header"><span>LOG_STREAM</span><span>ACTIVE</span></div>
-                    <div id="typewriter2" style="color: #444;"></div>
+                    <div id="typewriter2" class="typewriter-text" style="color: #444;"></div>
                 </div>
             </div>
         </div>
@@ -543,25 +694,39 @@
         <div class="ticker-wrap">
             <div class="ticker">
                 <!-- Repeated for seamless loop -->
-                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲ 2.4%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼ 1.1%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲ 0.5%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲ 4.2%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼ 0.8%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲ 1.2%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲ 0.9%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲ 2.4%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼ 1.1%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲ 0.5%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲ 4.2%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼ 0.8%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲ 1.2%</span></div>
-                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲ 0.9%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲
+                        2.4%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼
+                        1.1%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲
+                        0.5%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲
+                        4.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼
+                        0.8%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲
+                        1.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲
+                        0.9%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">NVDA</span><span class="ticker-dir up">▲
+                        2.4%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">TSLA</span><span class="ticker-dir down">▼
+                        1.1%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AAPL</span><span class="ticker-dir up">▲
+                        0.5%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">META</span><span class="ticker-dir up">▲
+                        4.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">AMZN</span><span class="ticker-dir down">▼
+                        0.8%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">MSFT</span><span class="ticker-dir up">▲
+                        1.2%</span></div>
+                <div class="ticker-item"><span class="ticker-symbol">GOOGL</span><span class="ticker-dir up">▲
+                        0.9%</span></div>
             </div>
         </div>
     </div>
 
-    <section>
+    <section id="features">
         <div class="container">
             <div class="stats-grid">
                 <div class="stat-card reveal">
@@ -580,13 +745,13 @@
         </div>
     </section>
 
-    <section>
+    <section id="pipeline">
         <div class="container">
             <div class="section-header reveal">
                 <h2>The Intelligence Pipeline</h2>
                 <p>Argus AI automates the full reasoning stack from raw headline to actionable signal.</p>
             </div>
-            
+
             <div class="pipeline-container reveal">
                 <div class="pipeline-line"></div>
                 <div class="pipeline-dot"></div>
@@ -610,7 +775,7 @@
         </div>
     </section>
 
-    <section>
+    <section id="preview">
         <div class="container">
             <div class="section-header reveal">
                 <h2>Pro-Grade Dashboard</h2>
@@ -628,7 +793,8 @@
                 <div class="feature-card reveal">
                     <div class="feature-icon">📈</div>
                     <h3>Bullish Signals</h3>
-                    <p>Identify positive catalysts before they're priced in, with confidence scoring and AI reasoning.</p>
+                    <p>Identify positive catalysts before they're priced in, with confidence scoring and AI reasoning.
+                    </p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">📉</div>
@@ -649,8 +815,8 @@
         <div class="container reveal">
             <h2 style="font-size: 44px; margin-bottom: 24px;">Start watching the market now.</h2>
             <div class="hero-btns">
-                <a href="/dashboard" class="btn-primary">Launch Dashboard</a>
-                <a href="#" class="btn-outline">Telegram Bot</a>
+                <a href="/dashboard" class="btn-primary pulse-nav">Launch Dashboard</a>
+                <a href="https://t.me/ArgusAISignalBot" target="_blank" class="btn-outline">Telegram Bot</a>
             </div>
         </div>
     </div>
@@ -660,7 +826,8 @@
             <div class="footer-content">
                 <div class="footer-left">
                     <div class="logo">
-                        <img src="assets/logo3.png" alt="Argus AI Logo" style="height: 28px; display: block; filter: brightness(0) invert(1); opacity: 0.8;">
+                        <img src="assets/logo3.png" alt="Argus AI Logo"
+                            style="height: 28px; display: block; filter: brightness(0) invert(1); opacity: 0.8;">
                     </div>
                     <p>Next-generation market intelligence.</p>
                 </div>
@@ -668,12 +835,12 @@
                     <div class="link-group">
                         <h4>Product</h4>
                         <a href="/dashboard">Dashboard</a>
-                        <a href="#">Telegram</a>
+                        <a href="https://t.me/ArgusAISignalBot" target="_blank">Telegram Bot</a>
                     </div>
                     <div class="link-group">
                         <h4>Resources</h4>
-                        <a href="#">Documentation</a>
-                        <a href="#">API</a>
+                        <a href="#pipeline">How it Works</a>
+                        <a href="https://github.com/Trevor/RippleSignalBot" target="_blank">Source Code</a>
                     </div>
                 </div>
             </div>
@@ -720,10 +887,10 @@
         function typeWriter(elementId, text, speed = 30) {
             let i = 0;
             const element = document.getElementById(elementId);
-            element.innerHTML = '';
+            element.textContent = '';
             function type() {
                 if (i < text.length) {
-                    element.innerHTML += text.charAt(i);
+                    element.textContent += text.charAt(i);
                     i++;
                     setTimeout(type, speed);
                 }
@@ -733,7 +900,7 @@
 
         setTimeout(() => {
             typeWriter('typewriter1', '> BULLISH SIGNAL: NVDA\n> Confidence: 94%\n> Catalyst: Quantum Chip Breakthrough\n> Horizon: Intraday\n> Reasoning: Proprietary LLM identifies 90% reduction in training latency...');
-            typeWriter('typewriter2', '20:15:32: Ingesting NewsAPI...\n20:15:34: Deduplicating articles...\n20:15:36: LangGraph Agent: Processing causal chain...\n20:15:38: Signal generated for ticker $LMT', 20);
+            typeWriter('typewriter2', '[20:15:32] INGESTING NewsAPI...\n[20:15:34] DEDUPLICATING articles...\n[20:15:36] CAUSAL_AGENT: Processing causal chain...\n[20:15:38] SIGNAL_GEN: ticker $LMT [CONF: 88%]', 20);
         }, 1000);
 
         // Counter Animation
@@ -774,12 +941,23 @@
         // Pipeline Anim
         function startPipelineAnim() {
             let step = 1;
+            const dot = document.querySelector('.pipeline-dot');
             setInterval(() => {
                 document.querySelectorAll('.pipeline-step').forEach(s => s.classList.remove('active'));
-                document.getElementById('step' + step).classList.add('active');
+                const currentStep = document.getElementById('step' + step);
+                currentStep.classList.add('active');
+
+                // Move dot to center of active step
+                const rect = currentStep.getBoundingClientRect();
+                const containerRect = document.querySelector('.pipeline-container').getBoundingClientRect();
+                const leftPos = rect.left - containerRect.left + (rect.width / 2);
+                dot.style.left = leftPos + 'px';
+                dot.style.transition = 'left 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+
                 step = (step % 4) + 1;
-            }, 1000);
+            }, 2000);
         }
     </script>
 </body>
+
 </html>
