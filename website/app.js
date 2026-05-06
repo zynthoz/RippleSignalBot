@@ -523,11 +523,8 @@ function renderAnalysisNode(signal) {
             <h2 class="font-headline-sm text-[11px] font-label-caps tracking-widest uppercase">ANALYSIS NODE</h2>
         </div>
         <div class="flex items-center gap-2">
-            <button class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Save Signal">
-                <span class="material-symbols-outlined text-[16px]">bookmark</span>
-            </button>
-            <button class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Set Alert">
-                <span class="material-symbols-outlined text-[16px]">notifications</span>
+            <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})" class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Set Alert">
+                <span class="material-symbols-outlined text-[16px]">add_alert</span>
             </button>
         </div>
     </div>
@@ -598,12 +595,9 @@ function renderAnalysisNode(signal) {
         </div>
 
         <!-- Sticky Actions -->
-        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex gap-2 z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]">
-            <button class="flex-1 bg-primary text-on-primary font-label-caps text-[11px] py-3 rounded-md hover:bg-primary-active transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 tracking-wider">
-                <span class="material-symbols-outlined text-[16px]">bookmark_add</span> SAVE SIGNAL
-            </button>
+        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]">
             <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})"
-                class="flex-1 bg-surface-card-elevated border border-hairline-strong text-body-strong font-label-caps text-[11px] py-3 rounded-md hover:bg-hairline transition-colors flex items-center justify-center gap-1.5 tracking-wider">
+                class="flex-1 bg-primary text-on-primary font-label-caps text-[11px] py-3 rounded-md hover:bg-primary-active transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 tracking-wider">
                 <span class="material-symbols-outlined text-[16px]">add_alert</span> SET ALERT
             </button>
         </div>
