@@ -1,7 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
-const Redis = require('ioredis');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createRedisClient } = require('./redisClient');
 
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -17,7 +17,7 @@ const CONFIG = {
   pendingTtlSeconds: parseInt(process.env.NEWS_PENDING_TTL_SECONDS || '900', 10),
 };
 
-const redis = new Redis(REDIS_URL);
+const redis = createRedisClient(REDIS_URL);
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const geminiModel = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
 
@@ -337,7 +337,7 @@ async function dedupAndPublish(articles) {
 
 async function poll() {
   console.log('Starting news poller...');
-  const trackerRedis = new Redis(REDIS_URL);
+  const trackerRedis = createRedisClient(REDIS_URL);
 
   const pollOnce = async () => {
     try {

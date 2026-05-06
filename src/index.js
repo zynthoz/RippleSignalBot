@@ -4,11 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const { Telegraf } = require('telegraf');
 const { Pool } = require('pg');
-const Redis = require('ioredis');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 const { poll: startNewsPoller } = require('./newsApi');
+const { createRedisClient } = require('./redisClient');
 
 const PORT = Number(process.env.PORT || 3000);
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -51,7 +51,7 @@ async function start() {
   }
 
   const pool = new Pool({ connectionString: DATABASE_URL });
-  const redis = new Redis(REDIS_URL);
+  const redis = createRedisClient(REDIS_URL);
   let bot = null;
 
   await pool.query('SELECT 1');
@@ -315,7 +315,7 @@ async function start() {
       });
       res.write(': connected\n\n');
 
-      const subRedis = new Redis(REDIS_URL);
+      const subRedis = createRedisClient(REDIS_URL);
       let isConnected = true;
 
       const pollEvents = async () => {

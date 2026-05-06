@@ -1,4 +1,4 @@
-const Redis = require('ioredis');
+const { createRedisClient } = require('./redisClient');
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -226,7 +226,7 @@ async function startDispatcher({ pool, bot, redisUrl }) {
     return;
   }
 
-  const redis = new Redis(redisUrl);
+  const redis = createRedisClient(redisUrl);
   const STREAM = 'signals:ready';
   const GROUP = 'signal_dispatchers';
   const CONSUMER = `dispatcher-${Date.now()}`;
