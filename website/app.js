@@ -1,4 +1,4 @@
-// MarketPulse AI - Web Dashboard App
+// ARGUS AI - Web Dashboard App
 
 let signals = [];
 let displayedSignals = [];
@@ -354,8 +354,8 @@ function renderSignalCard(signal) {
     // Tickers
     const tickers = normalizeTickerList(signal.tickers);
     const tickerHtml = tickers.length > 0 
-        ? `<div class="flex gap-1.5 flex-wrap">` + tickers.map(t => `<span class="bg-surface-card-elevated border border-hairline-strong text-body-strong text-[11px] font-data-tabular px-2 py-0.5 rounded shadow-sm">${escapeHtml(t)}</span>`).join('') + `</div>`
-        : `<span class="text-muted text-[11px] font-data-tabular">N/A</span>`;
+        ? tickers.map(t => `<span class="font-code font-bold text-body-strong">${escapeHtml(t)}</span>`).join(', ')
+        : `<span class="font-code text-muted">N/A</span>`;
 
     // Confidence
     const confVal = parseInt(signal.confidence, 10) || 0;
@@ -367,26 +367,25 @@ function renderSignalCard(signal) {
     const reasoningExcerpt = escapeHtml((signal.source_headline || signal.reasoning || '').substring(0, 55)) + '...';
 
     const isActive = signal.id === activeSignalId;
-    const activeClasses = isActive ? 'bg-surface-card-elevated border-l-primary' : 'bg-surface-card border-l-transparent';
+    const activeClasses = isActive ? `bg-surface-card-elevated border-l-${color}` : 'bg-transparent border-l-transparent';
+    const icon = isBull ? 'trending_up' : isBear ? 'trending_down' : 'horizontal_rule';
+    const opacityClass = isActive ? 'opacity-100' : 'opacity-90';
 
     return `
-    <div class="${activeClasses} border-l-[3px] border-y border-r border-hairline p-3 cursor-pointer hover:bg-surface-card-elevated hover:border-l-${color} transition-all group rounded-md" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
-        <div class="flex justify-between items-start mb-2">
-            ${tickerHtml}
-            <span class="font-data-tabular text-muted/50 text-[9px] mt-0.5">${age}</span>
+    <div class="${activeClasses} border-l-[2px] border-y border-r border-hairline p-3 cursor-pointer hover:bg-surface-card-elevated hover:border-l-${color} transition-all group rounded-none mb-2 last:mb-0" onclick="loadSignalDetails('${signal.id}')" data-id="${signal.id}">
+        <div class="flex justify-between items-center mb-1.5">
+            <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[14px] text-${color}">${icon}</span>
+                <span class="text-[10px] font-code text-${color} uppercase tracking-wider">${signal.direction}</span>
+            </div>
+            <span class="font-code text-muted text-[10px]">${age}</span>
         </div>
-        <div class="font-body-compact text-body-strong text-[13px] leading-snug mb-3 opacity-90 group-hover:opacity-100 transition-opacity">${reasoningExcerpt}</div>
+        <div class="text-[13px] leading-snug mb-2 font-body">
+            ${tickerHtml} <span class="text-muted mx-1">:</span> <span class="text-body-strong">${escapeHtml(signal.source_headline || 'Event Detected')}</span>
+        </div>
         <div class="flex justify-between items-end">
-            <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-${color}"></div>
-                <span class="text-[10px] font-label-caps text-muted uppercase tracking-widest">${signal.direction}</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="font-data-tabular text-[11px] text-${confColor} font-bold">${confVal}%</span>
-                <div class="w-10 bg-hairline-strong h-1 rounded-full overflow-hidden">
-                    <div class="bg-${confColor} h-full rounded-full" style="width: ${confVal}%"></div>
-                </div>
-            </div>
+            <div class="font-body-compact text-muted text-[11px] leading-snug ${opacityClass} group-hover:opacity-100 transition-opacity max-w-[80%] truncate">${reasoningExcerpt}</div>
+            <span class="font-code text-[12px] text-${confColor}">${confVal}%</span>
         </div>
     </div>`;
 }
@@ -423,13 +422,13 @@ function renderInlineTickers(signal) {
         const pillBg = isPositive ? 'bg-secondary/10' : isNegative ? 'bg-error/10' : 'bg-primary-fixed-dim/10';
         const pillIcon = isPositive ? 'trending_up' : isNegative ? 'trending_down' : 'horizontal_rule';
 
-        return `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-${pillColor}/30 ${pillBg} text-${pillColor}">
+        return `<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-${pillColor}/30 ${pillBg} text-${pillColor}">
             <span class="material-symbols-outlined text-[14px]">${pillIcon}</span>
-            <span class="font-data-tabular font-bold text-sm">${escapeHtml(sym)}</span>
+            <span class="font-code font-bold text-[12px] uppercase tracking-wider">${escapeHtml(sym)}</span>
         </div>`;
     }).filter(Boolean);
 
-    return `<div class="flex flex-wrap justify-center gap-2 mb-6">${pills.join('')}</div>`;
+    return `<div class="flex flex-wrap justify-center gap-2 mb-8">${pills.join('')}</div>`;
 }
 
 function formatReasoning(text) {
@@ -491,16 +490,16 @@ function renderPerformanceSection(signal) {
         const retPct = parseFloat(p.return_pct || 0).toFixed(2);
         
         return `
-            <div class="flex items-center justify-between py-2 border-b border-hairline last:border-0">
+            <div class="flex items-center justify-between py-2 border-b border-hairline-strong last:border-0">
                 <div class="flex items-center gap-2">
-                    <span class="font-data-tabular font-bold text-[13px]">${escapeHtml(p.ticker)}</span>
-                    <span class="text-[10px] text-muted bg-surface-card-elevated px-1.5 py-0.5 rounded uppercase tracking-wider">${escapeHtml(p.check_interval)}</span>
+                    <span class="font-code font-bold text-[13px] text-body-strong">${escapeHtml(p.ticker)}</span>
+                    <span class="text-[10px] text-muted bg-transparent border border-hairline-strong px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-code">${escapeHtml(p.check_interval)}</span>
                 </div>
-                <div class="flex items-center gap-3 text-[12px] font-data-tabular">
+                <div class="flex items-center gap-3 text-[12px] font-code">
                     <span class="text-muted" title="Entry Price">E: $${entry}</span>
                     <span class="text-muted" title="Check Price">C: $${check}</span>
                     <span class="text-${returnColor} font-bold min-w-[50px] text-right">${returnSign}${retPct}%</span>
-                    <div class="w-4 text-center ml-1">${icon}</div>
+                    <div class="w-4 text-center ml-1 text-[10px]">${icon}</div>
                 </div>
             </div>
         `;
@@ -509,9 +508,9 @@ function renderPerformanceSection(signal) {
     return `
             <!-- Performance -->
             <div class="flex flex-col mb-6">
-                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-1 uppercase px-1">PERFORMANCE</div>
-                <div class="text-[10px] text-muted/70 px-1 mb-2 italic">Based on price at article publish date</div>
-                <div class="bg-surface-card border border-hairline rounded-lg px-4 py-1">
+                <div class="text-[10px] text-muted font-code tracking-widest mb-1 uppercase">PERFORMANCE</div>
+                <div class="text-[10px] text-muted/70 mb-2 italic font-code">Based on price at article publish date</div>
+                <div class="border border-hairline-strong bg-transparent p-2 px-3">
                     ${rowsHtml}
                 </div>
             </div>
@@ -537,18 +536,11 @@ function renderAnalysisNode(signal) {
             const textColor = isFirst ? 'text-body-strong font-semibold' : 'text-body';
             
             return `
-            <div class="relative pl-6 pb-4">
-                ${idx < catalystChain.length - 1 ? `<div class="absolute left-2 top-6 bottom-0 w-[2px] bg-gradient-to-b from-hairline-strong to-transparent"></div>` : ''}
-                
-                <div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-surface-card flex items-center justify-center ${ringColor} z-10">
-                    <div class="w-2 h-2 rounded-full ${dotColor}"></div>
-                </div>
-                
-                <div class="opacity-[${opacity}%] transition-opacity">
-                    ${isFirst ? `<div class="text-[10px] text-${color} font-label-caps mb-0.5 tracking-widest">ROOT EVENT</div>` : ''}
-                    <div class="font-body-compact text-[13px] ${textColor} leading-relaxed">${escapeHtml(step)}</div>
-                </div>
-            </div>`;
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-[14px] text-muted mt-0.5">schema</span>
+                <div class="font-code text-[11px] text-body-strong leading-relaxed">${escapeHtml(step)}</div>
+            </div>
+            ${idx < catalystChain.length - 1 ? `<div class="text-muted ml-1 text-[12px] font-code py-1">↓</div>` : ''}`;
         }).join('');
     } else {
         catalystHtml = `<div class="text-muted text-xs italic pb-4">No causal chain data available.</div>`;
@@ -568,13 +560,13 @@ function renderAnalysisNode(signal) {
     else if (horizonText.toLowerCase().includes('long')) horizonText += ' <span class="text-muted text-xs font-normal">(6+ months)</span>';
 
     return `
-    <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full" style="height: 48px;">
+    <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full" style="height: 40px;">
         <div class="flex items-center gap-2 cursor-pointer hover:text-body-strong text-muted transition-colors" onclick="clearAnalysisNode()" title="Back to default view">
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-            <h2 class="font-headline-sm text-[11px] font-label-caps tracking-widest uppercase">ANALYSIS NODE</h2>
+            <span class="material-symbols-outlined text-[16px]">close</span>
+            <h2 class="font-code text-[11px] tracking-widest uppercase text-muted">Analysis Node</h2>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})" class="bg-surface-card hover:bg-surface-card-elevated text-muted border border-hairline-strong p-1.5 rounded transition-colors" title="Set Alert">
+            <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})" class="bg-transparent hover:text-primary text-muted p-1 transition-colors" title="Set Alert">
                 <span class="material-symbols-outlined text-[16px]">add_alert</span>
             </button>
         </div>
@@ -582,12 +574,13 @@ function renderAnalysisNode(signal) {
     
     <div class="flex-1 overflow-y-auto flex flex-col bg-canvas-deep relative">
         <div class="p-5 flex-1 flex flex-col">
-            <!-- Direction Anchor -->
-            <div class="flex justify-center mt-2 mb-4">
-                <div class="bg-${color}/10 border border-${color}/20 text-${color} px-4 py-1.5 rounded-full font-label-caps text-[11px] tracking-widest uppercase shadow-[0_0_10px_rgba(var(--${color}-rgb,0,0,0),0.1)] flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-${color}"></div>
-                    ${signal.direction}
+            <!-- Hero Section -->
+            <div class="flex flex-col items-center justify-center mt-6 mb-8 gap-2">
+                <div class="w-16 h-16 rounded-full border border-${color} flex items-center justify-center text-${color} bg-${color}/10 mb-2 shadow-[0_0_15px_rgba(var(--${color}-rgb,0,0,0),0.2)]">
+                    <span class="material-symbols-outlined text-3xl">${isBull ? 'trending_up' : isBear ? 'trending_down' : 'horizontal_rule'}</span>
                 </div>
+                <div class="text-2xl font-bold font-code tracking-widest text-body-strong">${primaryTicker}</div>
+                <div class="text-[10px] font-code text-${color} tracking-widest uppercase">STRONG ${signal.direction}</div>
             </div>
 
             <!-- Inline Tickers -->
@@ -595,43 +588,34 @@ function renderAnalysisNode(signal) {
 
             <!-- Catalyst News -->
             <div class="flex flex-col mb-6">
-                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">CATALYST NEWS</div>
-                <div class="bg-surface-card border border-hairline rounded-lg p-4 hover:border-hairline-strong transition-colors group relative overflow-hidden">
+                <div class="bg-transparent border border-hairline-strong p-3 hover:border-hairline transition-colors group relative overflow-hidden">
                     <div class="flex items-center gap-2 mb-2">
-                        ${faviconUrl ? `<img src="${faviconUrl}" class="w-4 h-4 rounded-sm bg-white/10 p-0.5" alt="source"/>` : `<span class="material-symbols-outlined text-[16px] text-muted">newspaper</span>`}
-                        <span class="font-label-caps text-xs text-muted group-hover:text-primary transition-colors">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
-                        <span class="text-muted/30 text-xs">•</span>
-                        <span class="font-data-tabular text-[10px] text-muted/70">${timeAgo(signal.created_at)}</span>
+                        ${faviconUrl ? `<img src="${faviconUrl}" class="w-3 h-3 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all" alt="source"/>` : `<span class="material-symbols-outlined text-[12px] text-muted">newspaper</span>`}
+                        <span class="font-code text-[10px] text-muted group-hover:text-primary transition-colors uppercase">${escapeHtml(signal.source_name || domain || 'News Source')}</span>
+                        <span class="text-muted/30 text-[10px]">•</span>
+                        <span class="font-code text-[10px] text-muted/70">${timeAgo(signal.created_at)}</span>
                     </div>
-                    <div class="text-[15px] font-headline-sm text-body-strong leading-snug mb-3">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
-                    ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors w-fit"><span class="material-symbols-outlined text-[14px]">open_in_new</span> Read Article</a>` : ''}
+                    <div class="text-[13px] font-body text-body-strong leading-snug mb-3">${escapeHtml(signal.source_headline || 'Unknown News Source')}</div>
+                    ${signal.source_url ? `<a href="${escapeHtml(signal.source_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-primary text-[10px] font-code hover:text-primary-glow transition-colors w-fit"><span class="material-symbols-outlined text-[12px]">open_in_new</span> READ ARTICLE</a>` : ''}
                 </div>
             </div>
 
             <!-- Metrics Grid -->
-            <div class="grid grid-cols-2 gap-3 mb-6">
-                <div class="bg-surface-card border border-hairline rounded-lg p-3">
-                    <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1 flex items-center justify-between">
-                        CONFIDENCE
-                        ${isOverconfident ? `<span class="material-symbols-outlined text-[14px] text-error" title="High confidence warning">warning</span>` : ''}
-                    </div>
-                    <div class="flex items-end gap-2 mb-3">
-                        <div class="font-display-ticker text-2xl text-${color} leading-none">${confVal}%</div>
-                    </div>
-                    <div class="w-full bg-hairline h-1.5 rounded-full overflow-hidden">
-                        <div class="bg-${color} h-full rounded-full" style="width: ${confVal}%"></div>
-                    </div>
+            <div class="grid grid-cols-2 gap-0 mb-6 border border-hairline-strong bg-canvas-deep">
+                <div class="p-3 border-r border-hairline-strong">
+                    <div class="text-[10px] text-muted font-code tracking-widest mb-2 uppercase">CONFIDENCE</div>
+                    <div class="font-code text-xl text-${color}">${confVal}%</div>
                 </div>
-                <div class="bg-surface-card border border-hairline rounded-lg p-3">
-                    <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">IMPACT HORIZON</div>
-                    <div class="font-headline-sm text-[15px] text-body-strong capitalize mt-1 leading-tight">${horizonText}</div>
+                <div class="p-3">
+                    <div class="text-[10px] text-muted font-code tracking-widest mb-2 uppercase">IMPACT HORIZON</div>
+                    <div class="font-code text-sm text-body-strong uppercase">${horizonText}</div>
                 </div>
             </div>
 
             <!-- Causal Chain -->
             <div class="flex flex-col mb-6">
-                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">CAUSAL CHAIN</div>
-                <div class="bg-surface-card border border-hairline rounded-lg p-4 pb-0">
+                <div class="text-[10px] text-muted font-code tracking-widest mb-3 uppercase">CAUSAL CHAIN</div>
+                <div class="flex flex-col border border-hairline-strong bg-transparent p-4">
                     ${catalystHtml}
                 </div>
             </div>
@@ -640,18 +624,18 @@ function renderAnalysisNode(signal) {
 
             <!-- AI Reasoning -->
             <div class="flex flex-col mb-20">
-                <div class="text-[11px] text-muted font-label-caps tracking-widest mb-3 uppercase px-1">AI REASONING</div>
-                <div class="bg-surface-card border border-hairline rounded-lg p-4">
+                <div class="text-[10px] text-muted font-code tracking-widest mb-3 uppercase">AI REASONING</div>
+                <div class="font-code text-[11px] leading-relaxed text-body text-justify">
                     ${formatReasoning(signal.reasoning)}
                 </div>
             </div>
         </div>
 
         <!-- Sticky Actions -->
-        <div class="sticky bottom-0 left-0 right-0 p-4 bg-surface-card border-t border-hairline flex z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]">
+        <div class="sticky bottom-0 left-0 right-0 p-4 bg-canvas-deep border-t border-hairline flex z-20">
             <button onclick="openWatchlistForSignal('${escapeHtml(primaryTicker)}', '${escapeHtml(signal.direction || '')}', ${confVal})"
-                class="flex-1 bg-primary text-on-primary font-label-caps text-[11px] py-3 rounded-md hover:bg-primary-active transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 tracking-wider">
-                <span class="material-symbols-outlined text-[16px]">add_alert</span> SET ALERT
+                class="flex-1 bg-transparent border border-hairline-strong text-muted font-code text-[11px] py-2.5 hover:border-${color} hover:text-${color} hover:bg-${color}/10 transition-colors flex items-center justify-center gap-1.5 tracking-wider uppercase">
+                EXECUTE HEDGE SCRIPT
             </button>
         </div>
     </div>
@@ -725,18 +709,18 @@ function attachTopologyFullscreenButton() {
 function renderCenterGraph(signal) {
     if (!signal) {
         centerPanel.innerHTML = `
-        <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0 w-full z-10" style="height: 48px;">
-            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
-            <button id="topology-fullscreen-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
-                <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+        <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0 w-full z-10" style="height: 40px;">
+            <h2 class="font-code text-[11px] uppercase tracking-widest text-muted">Catalyst Topology</h2>
+            <button id="topology-fullscreen-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
+                <span class="material-symbols-outlined text-[16px]">fullscreen</span>
             </button>
         </div>
         <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center h-full w-full bg-canvas-deep">
-            <div class="w-20 h-20 rounded-full bg-surface-card flex items-center justify-center mb-4 border border-hairline shadow-inner">
-                <span class="material-symbols-outlined text-[32px] text-muted/30">account_tree</span>
+            <div class="w-16 h-16 rounded-sm bg-surface-card flex items-center justify-center mb-6 border border-hairline-strong shadow-lg shadow-black/20">
+                <span class="material-symbols-outlined text-[32px] text-muted/20">account_tree</span>
             </div>
-            <div class="text-[14px] font-medium text-body-strong mb-1">Awaiting Catalyst</div>
-            <div class="text-[12px] max-w-[250px]">Select a signal to render the topology graph and causal network.</div>
+            <div class="text-[12px] font-code text-body-strong mb-1 uppercase tracking-wider">Awaiting Catalyst</div>
+            <div class="text-[11px] font-code text-muted/60 max-w-[280px]">SELECT A SIGNAL TO RENDER TOPOLOGY GRAPH AND CAUSAL NETWORK.</div>
         </div>`;
         attachTopologyFullscreenButton();
         return;
@@ -744,14 +728,14 @@ function renderCenterGraph(signal) {
 
     const topology = buildTopologyModel(signal);
 
-    centerPanel.innerHTML = `<div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full z-10" style="height: 48px;">
-            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Catalyst Topology</h2>
+    centerPanel.innerHTML = `<div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full z-10" style="height: 40px;">
+            <h2 class="font-code text-[11px] uppercase tracking-widest text-muted">Catalyst Topology</h2>
             <div class="flex items-center gap-1">
-                <button id="reheat-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
-                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                <button id="reheat-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Reset Layout">
+                    <span class="material-symbols-outlined text-[16px]">refresh</span>
                 </button>
-                <button id="topology-fullscreen-btn" class="text-muted p-1 rounded hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
-                    <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+                <button id="topology-fullscreen-btn" class="text-muted p-1 rounded-sm hover:bg-surface-card-elevated transition-colors flex items-center justify-center bg-transparent border-none" title="Full Screen" aria-label="Full Screen">
+                    <span class="material-symbols-outlined text-[16px]">fullscreen</span>
                 </button>
             </div>
         </div>
@@ -763,12 +747,12 @@ function renderCenterGraph(signal) {
                     <span class="material-symbols-outlined text-[14px]">info</span> Legend
                 </div>
                 <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[160px]">
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#4a90e2;" class="mr-2 text-[14px]">●</span> Root Cause</span>
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ffcf56;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#6cb4d9;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#a3ffb4;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ff7a7a;" class="mr-2 text-[14px]">●</span> Headwind</span>
-                    <span class="flex items-center text-body-strong text-xs"><span style="color:#ff6b6b;" class="mr-2 text-[16px]">◇</span> Risk</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#0ea5e9;" class="mr-2 text-[14px]">●</span> Root Cause</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#fde047;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#a855f7;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#00ff9d;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff4d4d;" class="mr-2 text-[14px]">●</span> Headwind</span>
+                    <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#f97316;" class="mr-2 text-[16px]">◇</span> Risk</span>
                 </div>
             </div>
 
@@ -850,7 +834,7 @@ function initD3Graph(signal, topology) {
     const rootId = 'root';
     nodes.push({
         id: rootId, label: 'ROOT CAUSE', group: 'root', layer: 0,
-        radius: 28, color: '#4a90e2', shape: 'circle',
+        radius: 28, color: '#0ea5e9', shape: 'circle',
         detail: signal.market_consensus_divergence || topology.root || 'Initial Catalyst',
         directionInfo: '', conviction: 'high'
     });
@@ -863,10 +847,10 @@ function initD3Graph(signal, topology) {
         foIds.push(id);
         nodes.push({
             id, label: shortLabel(txt), group: 'first_order', layer: 1,
-            radius: 14, color: '#ffcf56', shape: 'diamond',
+            radius: 14, color: '#fde047', shape: 'diamond',
             detail: txt, directionInfo: 'DIRECT EFFECT', conviction: 'high'
         });
-        links.push({ source: rootId, target: id, value: 7, color: '#ffcf56', reason: 'Direct impact', dashed: false });
+        links.push({ source: rootId, target: id, value: 7, color: '#fde047', reason: 'Direct impact', dashed: false });
     });
 
     // === Layer 2: Second-order effects ===
@@ -877,11 +861,11 @@ function initD3Graph(signal, topology) {
         soIds.push(id);
         nodes.push({
             id, label: shortLabel(txt), group: 'second_order', layer: 2,
-            radius: 10, color: '#6cb4d9', shape: 'diamond',
+            radius: 10, color: '#a855f7', shape: 'diamond',
             detail: txt, directionInfo: 'RIPPLE EFFECT', conviction: 'medium'
         });
         const parentId = foIds.length > 0 ? foIds[idx % foIds.length] : rootId;
-        links.push({ source: parentId, target: id, value: 5, color: '#6cb4d9', reason: 'Downstream ripple', dashed: false });
+        links.push({ source: parentId, target: id, value: 5, color: '#a855f7', reason: 'Downstream ripple', dashed: false });
     });
 
     // === Layer 3: Ticker nodes ===
@@ -891,7 +875,7 @@ function initD3Graph(signal, topology) {
         const impact = tickerImpact(sym);
         const m = tickerMeta(sym);
         const conv = m ? String(m.conviction || 'medium') : 'medium';
-        const col = impact === 'positive' ? '#a3ffb4' : impact === 'negative' ? '#ff7a7a' : '#8d99ae';
+        const col = impact === 'positive' ? '#00ff9d' : impact === 'negative' ? '#ff4d4d' : '#8d99ae';
         const id = nid('tk');
         const why = m && m.why_it_matters ? String(m.why_it_matters) : `${impact.toUpperCase()} impact on ${sym}`;
         const company = m ? String(m.company_name || sym).trim() : sym;
@@ -923,33 +907,26 @@ function initD3Graph(signal, topology) {
         const id = nid('risk');
         nodes.push({
             id, label: shortLabel(txt), group: 'risk', layer: 'risk',
-            radius: 6, color: '#ff6b6b', shape: 'diamond',
+            radius: 6, color: '#f97316', shape: 'diamond',
             detail: txt, directionInfo: 'INVALIDATOR', conviction: 'low'
         });
-        links.push({ source: rootId, target: id, value: 2, color: '#ff6b6b', reason: 'Thesis risk', dashed: true });
+        links.push({ source: rootId, target: id, value: 2, color: '#f97316', reason: 'Thesis risk', dashed: true });
     });
 
     // Initialize all nodes near the center with random jitter to prevent them from flying in from (0,0)
     // Jitter ensures dx/dy are never precisely 0 in the custom force layer.
     nodes.forEach(n => { n.x = cx + Math.random() * 2 - 1; n.y = cy + Math.random() * 2 - 1; });
 
+    let nodeLabel, linkLabel;
+    const initialTransform = d3.zoomIdentity.translate(cx, cy).scale(0.85).translate(-cx, -cy);
+
     // ========== D3 Rendering ==========
     d3.select("#d3-container").select("svg").remove();
 
-    const zoom = d3.zoom().scaleExtent([0.2, 4]).on("zoom", (event) => g.attr("transform", event.transform));
-    // Start slightly zoomed out (0.85) to ensure nodes aren't cut off at the edges
-    const initialTransform = d3.zoomIdentity.translate(cx, cy).scale(0.85).translate(-cx, -cy);
-
     const svg = d3.select("#d3-container").append("svg")
-        .attr("width", width).attr("height", height).call(zoom);
+        .attr("width", width).attr("height", height);
 
     const g = svg.append("g");
-
-    // Now that `g` exists, apply the initial zoom transform to center the view
-    svg.call(zoom.transform, initialTransform)
-        .on("dblclick.zoom", () => {
-            svg.transition().duration(750).call(zoom.transform, initialTransform);
-        });
 
     svg.on("click", () => { pinnedNode = null; hideTooltip(); resetFocus(); });
 
@@ -979,7 +956,7 @@ function initD3Graph(signal, topology) {
     glow.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).enter().append("feMergeNode").attr("in", d => d);
 
     // Arrow markers
-    ['#4a90e2', '#a3ffb4', '#ff7a7a', '#8d99ae', '#ffcf56', '#6cb4d9', '#ff6b6b'].forEach(color => {
+    ['#0ea5e9', '#00ff9d', '#ff4d4d', '#8d99ae', '#fde047', '#a855f7', '#f97316'].forEach(color => {
         defs.append("marker").attr("id", "arr-" + color.replace('#', ''))
             .attr("viewBox", "0 -4 8 8").attr("refX", 18).attr("refY", 0)
             .attr("markerWidth", 5).attr("markerHeight", 5).attr("orient", "auto")
@@ -1025,7 +1002,7 @@ function initD3Graph(signal, topology) {
         .attr("marker-end", d => "url(#arr-" + d.color.replace('#', '') + ")");
 
     // Link labels (relationship reason on hover visibility handled via CSS)
-    const linkLabel = g.append("g").selectAll("text").data(links).enter().append("text")
+    linkLabel = g.append("g").selectAll("text").data(links).enter().append("text")
         .text(d => d.reason || '')
         .attr("font-size", "8px").attr("fill", "#555").attr("text-anchor", "middle")
         .attr("font-family", "sans-serif").style("pointer-events", "none").attr("opacity", 0);
@@ -1052,7 +1029,7 @@ function initD3Graph(signal, topology) {
     });
 
     // Labels — tickers always visible; effect/risk labels hidden until hover
-    const nodeLabel = node.append("text")
+    nodeLabel = node.append("text")
         .text(d => {
             if (d.group === 'ticker') return d.ticker || d.label;
             if (d.group === 'root') return '';
@@ -1061,10 +1038,18 @@ function initD3Graph(signal, topology) {
         .attr("dx", d => d.group === 'ticker' ? 0 : d.radius + 5)
         .attr("dy", 4)
         .attr("text-anchor", d => d.group === 'ticker' ? "middle" : "start")
-        .attr("fill", d => d.group === 'root' ? '#4a90e2' : d.group === 'risk' ? '#ff6b6b99' : d.group === 'ticker' ? '#222' : '#999')
-        .attr("font-size", d => d.group === 'ticker' ? "12px" : "9px")
+        .attr("fill", d => {
+            if (d.group === 'root') return '#0ea5e9';
+            if (d.group === 'risk') return '#ff4d4d';
+            if (d.group === 'ticker') return '#060a12'; // Deep contrast for neon circles
+            return '#8b9cb7';
+        })
+        .attr("font-size", d => {
+            if (d.group === 'ticker') return "11px"; // Fixed small size for tickers
+            return 13 / initialTransform.k + "px"; // Responsive for descriptions
+        })
         .attr("font-weight", d => d.group === 'ticker' ? "600" : "400")
-        .attr("font-family", "sans-serif").style("pointer-events", "none")
+        .attr("font-family", "JetBrains Mono, monospace").style("pointer-events", "none")
         .attr("opacity", d => (d.group === 'ticker') ? 1 : 0);
 
     // Tooltip & interaction
@@ -1147,6 +1132,23 @@ function initD3Graph(signal, topology) {
         .on("click", (event, d) => { event.stopPropagation(); pinnedNode = d; focusNode(d); showTooltip(d); });
 
     document.getElementById('reheat-btn').addEventListener('click', (e) => { e.stopPropagation(); simulation.alpha(1).restart(); });
+
+    // === Zoom Behavior ===
+    const zoom = d3.zoom().scaleExtent([0.2, 4]).on("zoom", (event) => {
+        g.attr("transform", event.transform);
+        // Maintain readable sizes ONLY for descriptions, keep tickers fixed relative to nodes
+        const k = event.transform.k;
+        nodeLabel.attr("font-size", d => {
+            if (d.group === 'ticker') return "11px";
+            return 13 / k + "px";
+        });
+        linkLabel.attr("font-size", 10 / k + "px");
+    });
+
+    svg.call(zoom).call(zoom.transform, initialTransform)
+       .on("dblclick.zoom", () => {
+           svg.transition().duration(750).call(zoom.transform, initialTransform);
+       });
 
     // Bounding constraints
     function constrainNodes() {
@@ -1284,16 +1286,16 @@ function setFilter(filter) {
 async function loadSignalDetails(id) {
     activeSignalId = id;
     // Highlight active card
+    const signal = signals.find(s => s.id === id);
+    const color = signal ? (signal.direction === 'BULLISH' ? 'secondary' : signal.direction === 'BEARISH' ? 'error' : 'primary-fixed-dim') : 'primary';
+
     document.querySelectorAll('#signal-feed > div').forEach(el => {
-        el.classList.remove('bg-surface-card-elevated', 'border-l-primary');
-        el.classList.add('bg-surface-card', 'border-l-transparent');
-        
-        // Remove individual direction colors if any were added by hover
-        ['secondary', 'error', 'primary-fixed-dim'].forEach(c => el.classList.remove(`border-l-${c}`));
+        el.classList.remove('bg-surface-card-elevated', 'border-l-primary', 'border-l-secondary', 'border-l-error', 'border-l-primary-fixed-dim');
+        el.classList.add('bg-transparent', 'border-l-transparent');
         
         if (el.dataset.id === id) {
-            el.classList.remove('bg-surface-card', 'border-l-transparent');
-            el.classList.add('bg-surface-card-elevated', 'border-l-primary');
+            el.classList.remove('bg-transparent', 'border-l-transparent');
+            el.classList.add('bg-surface-card-elevated', `border-l-${color}`);
         }
     });
 
@@ -1311,15 +1313,15 @@ async function loadSignalDetails(id) {
 
 function clearAnalysisNode() {
     analysisNodeContainer.innerHTML = `
-        <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0" style="height: 48px;">
-            <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Analysis Node</h2>
+        <div class="px-cell-padding-x border-b border-hairline bg-surface-card flex justify-between items-center shrink-0" style="height: 40px;">
+            <h2 class="font-code text-[11px] uppercase tracking-widest text-muted">Analysis Node</h2>
         </div>
         <div class="flex-1 flex flex-col items-center justify-center text-muted p-6 text-center">
-            <div class="w-16 h-16 rounded-full bg-surface-card-elevated flex items-center justify-center mb-4 border border-hairline">
+            <div class="w-16 h-16 rounded-sm bg-surface-card-elevated flex items-center justify-center mb-4 border border-hairline-strong">
                 <span class="material-symbols-outlined text-[24px] text-muted/50">hub</span>
             </div>
-            <div class="text-[13px] font-medium text-body-strong mb-1">No Signal Selected</div>
-            <div class="text-[11px] max-w-[200px]">Select a signal from the feed to view its causal chain analysis.</div>
+            <div class="text-[12px] font-code text-body-strong mb-1 uppercase tracking-wider">No Signal Selected</div>
+            <div class="text-[11px] font-code text-muted/60 max-w-[200px]">SELECT A SIGNAL FROM THE FEED TO VIEW ITS CAUSAL CHAIN ANALYSIS.</div>
         </div>
     `;
     activeSignalId = null;

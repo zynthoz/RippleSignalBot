@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>MarketPulse AI</title>
+  <title>ARGUS AI</title>
   <!-- Fonts & Icons -->
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
@@ -28,38 +28,38 @@
       theme: {
         extend: {
           colors: {
-            "primary": "#0007cd",
-            "primary-active": "#0005a3",
-            "primary-glow": "#1a26ff",
-            "accent-cyan": "#00d4ff",
+            "primary": "#0ea5e9",
+            "primary-active": "#0284c7",
+            "primary-glow": "#38bdf8",
+            "accent-cyan": "#22d3ee",
             "accent-violet": "#7b3aed",
-            "canvas": "#0f0f0f",
-            "canvas-deep": "#000000",
-            "surface-card": "#181818",
-            "surface-card-elevated": "#222222",
-            "surface-strong": "#2a2a2a",
-            "hairline": "#222222",
-            "hairline-soft": "#1a1a1a",
-            "hairline-strong": "#333333",
-            "ink": "#ffffff",
-            "body": "#a8a8a8",
-            "body-strong": "#ffffff",
-            "muted": "#888888",
-            "muted-soft": "#666666",
+            "canvas": "#0a0f18",
+            "canvas-deep": "#060a12",
+            "surface-card": "#0f1923",
+            "surface-card-elevated": "#162030",
+            "surface-strong": "#1e293b",
+            "hairline": "#1a2535",
+            "hairline-soft": "#141d2b",
+            "hairline-strong": "#2a3a4e",
+            "ink": "#f0f6fc",
+            "body": "#8b9cb7",
+            "body-strong": "#e2e8f0",
+            "muted": "#64748b",
+            "muted-soft": "#475569",
             "on-primary": "#ffffff",
-            "semantic-success": "#33d17a",
+            "semantic-success": "#00ff9d",
             "semantic-error": "#ff4d4d",
-            "secondary": "#43e5b1",
-            "error": "#ffb4ab",
-            "primary-fixed-dim": "#adc6ff",
+            "secondary": "#00ff9d",
+            "error": "#ff4d4d",
+            "primary-fixed-dim": "#94a3b8",
           },
           borderRadius: {
             "none": "0px",
-            "xs": "4px",
-            "sm": "6px",
-            "md": "8px",
-            "lg": "12px",
-            "xl": "16px",
+            "xs": "2px",
+            "sm": "3px",
+            "md": "4px",
+            "lg": "6px",
+            "xl": "8px",
             "pill": "9999px",
             "full": "9999px",
           },
@@ -110,20 +110,18 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #222222;
-      /* surface-card-elevated */
-      border-radius: 4px;
+      background: #1a2535;
+      border-radius: 2px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #333333;
-      /* hairline-strong */
+      background: #2a3a4e;
     }
 
     /* Firefox */
     * {
       scrollbar-width: thin;
-      scrollbar-color: #222222 transparent;
+      scrollbar-color: #1a2535 transparent;
     }
     
     @keyframes ticker {
@@ -136,7 +134,7 @@
     input:-webkit-autofill:hover, 
     input:-webkit-autofill:focus, 
     input:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 30px #0A0A0A inset !important;
+        -webkit-box-shadow: 0 0 0 30px #0a0f18 inset !important;
         -webkit-text-fill-color: white !important;
         transition: background-color 5000s ease-in-out 0s;
     }
@@ -148,7 +146,7 @@
       left: 0;
       width: 100%;
       height: 200px;
-      background: linear-gradient(transparent, #0d0d0d);
+      background: linear-gradient(transparent, #0a0f18);
       pointer-events: none;
       z-index: 10;
     }
@@ -160,7 +158,7 @@
       left: 0;
       width: 100%;
       height: 120px;
-      background: linear-gradient(#0d0d0d, transparent);
+      background: linear-gradient(#0a0f18, transparent);
       pointer-events: none;
       z-index: 10;
     }
@@ -330,46 +328,46 @@
               <svg width="40" height="24" viewBox="0 0 40 24" fill="none" stroke="white" stroke-width="3" xmlns="http://www.w3.org/2000/svg" class="mb-6 opacity-90">
                   <path d="M 0 12 L 10 12 L 14 4 L 20 20 L 24 12 L 40 12" stroke-linecap="square" stroke-linejoin="miter"/>
               </svg>
-              <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">MarketPulse AI</div>
+              <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">ARGUS AI</div>
           </div>
           
           <div class="flex flex-col gap-6">
               <div class="flex flex-col gap-2">
-                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Email</label>
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40 font-code">Email</label>
                   <input id="auth-email" type="email"
-                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+                  class="bg-[#0f1923] border border-[#1a2535] rounded-[3px] px-3 py-2.5 text-[13px] text-[#e2e8f0] focus:border-[#0ea5e9]/40 focus:outline-none w-full transition-colors font-code">
               </div>
               
               <div class="flex flex-col gap-2">
-                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Password</label>
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40 font-code">Password</label>
                   <input id="auth-password" type="password"
-                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+                  class="bg-[#0f1923] border border-[#1a2535] rounded-[3px] px-3 py-2.5 text-[13px] text-[#e2e8f0] focus:border-[#0ea5e9]/40 focus:outline-none w-full transition-colors font-code">
               </div>
 
               <div class="flex flex-col gap-2 hidden" id="auth-display-name-container">
-                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40">Display Name</label>
+                  <label class="text-[11px] tracking-[0.08em] uppercase text-white/40 font-code">Display Name</label>
                   <input id="auth-display-name" type="text"
-                  class="bg-[#1a1a1a] border border-white/[0.08] rounded-[4px] px-3 py-2.5 text-[13px] text-white focus:border-white/20 focus:outline-none w-full transition-colors">
+                  class="bg-[#0f1923] border border-[#1a2535] rounded-[3px] px-3 py-2.5 text-[13px] text-[#e2e8f0] focus:border-[#0ea5e9]/40 focus:outline-none w-full transition-colors font-code">
               </div>
 
               <div id="auth-error" class="hidden text-error text-[11px] font-medium mt-[-10px]"></div>
               
               <div class="flex flex-col mt-4 gap-4">
                   <button onclick="authLogin()" id="auth-login-btn"
-                  class="w-full bg-[#2563eb] text-white text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 border-none hover:bg-blue-600 transition-colors">LOG IN</button>
+                  class="w-full bg-[#0ea5e9]/10 text-[#0ea5e9] text-[12px] tracking-[0.08em] uppercase rounded-[3px] px-6 py-3 border border-[#0ea5e9]/50 hover:bg-[#0ea5e9]/20 transition-colors font-code">LOG IN</button>
                   
                   <button onclick="authRegister()" id="auth-register-btn"
-                  class="w-full bg-[#2563eb] text-white text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 border-none hover:bg-blue-600 transition-colors hidden">CREATE ACCOUNT</button>
+                  class="w-full bg-[#0ea5e9]/10 text-[#0ea5e9] text-[12px] tracking-[0.08em] uppercase rounded-[3px] px-6 py-3 border border-[#0ea5e9]/50 hover:bg-[#0ea5e9]/20 transition-colors hidden font-code">CREATE ACCOUNT</button>
               
                   <button onclick="toggleAuthMode()" id="auth-toggle-btn" 
-                  class="w-full bg-transparent border border-white/10 text-white/50 text-[12px] tracking-[0.08em] uppercase rounded-[4px] px-6 py-3 hover:text-white/80 transition-colors">Register instead</button>
+                  class="w-full bg-transparent border border-[#1a2535] text-[#64748b] text-[12px] tracking-[0.08em] uppercase rounded-[3px] px-6 py-3 hover:text-[#8b9cb7] hover:border-[#2a3a4e] transition-colors font-code">Register instead</button>
               </div>
           </div>
       </div>
     </div>
 
     <!-- Ambient Bottom Ticker Tape -->
-    <div class="absolute bottom-0 left-0 w-full overflow-hidden whitespace-nowrap bg-[#000000] border-t border-hairline/30 py-1.5 z-[210] pointer-events-none">
+    <div class="absolute bottom-0 left-0 w-full overflow-hidden whitespace-nowrap bg-[#060a12] border-t border-hairline/30 py-1.5 z-[210] pointer-events-none">
       <div class="inline-block animate-[ticker_60s_linear_infinite] text-[10px] font-mono tracking-wider text-muted/50" style="animation: ticker 60s linear infinite;">
           NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; NVDA <span class="text-secondary">+2.3%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; BTC <span class="text-secondary">$94,200</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; XOM <span class="text-error">-0.8%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; PLTR <span class="text-secondary">+4.1%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; TSLA <span class="text-secondary">+1.2%</span> &nbsp;&nbsp;&middot;&nbsp;&nbsp; AAPL <span class="text-error">-0.2%</span>
       </div>
@@ -380,10 +378,10 @@
   <div id="app-dashboard" class="flex flex-col h-full w-full hidden">
   <!-- TopNavBar -->
   <header class="z-50 bg-canvas border-b border-hairline flex justify-between items-center w-full px-4 shrink-0"
-    style="height: 48px;">
-    <div class="flex items-center gap-6">
-      <div class="text-lg font-bold text-body-strong tracking-normal flex items-center gap-2">
-        MarketPulse AI
+    style="height: 40px;">
+    <div class="flex items-center gap-4">
+      <div class="text-sm font-bold text-body-strong tracking-[0.15em] uppercase flex items-center gap-2.5 font-code">
+        ARGUS AI
       </div>
     </div>
     <div class="flex items-center gap-1">
@@ -544,23 +542,23 @@
   <main class="flex-1 p-4 flex gap-4 bg-canvas overflow-hidden relative justify-between w-full">
     <!-- Left Sidebar: Signal Feed -->
     <section
-      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-1 overflow-hidden">
-      <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0" style="height: 48px;">
+      class="bg-surface-card flex flex-col border border-hairline rounded-sm h-full shrink-0 relative z-10 flex-1 overflow-hidden">
+      <div class="px-cell-padding-x border-b border-hairline flex justify-between items-center bg-surface-card shrink-0" style="height: 40px;">
         <h2 class="font-headline-sm text-[11px] font-label-caps uppercase tracking-widest text-muted">Signal Feed</h2>
       </div>
       <div class="px-cell-padding-x py-2 flex gap-1 border-b border-hairline bg-surface-card">
         <button id="filter-ALL"
-          class="flex-1 bg-primary text-on-primary font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-primary-active transition-colors">ALL</button>
+          class="flex-1 bg-primary/10 text-primary font-code text-[11px] py-1.5 text-center rounded-sm border border-primary/50 hover:bg-primary/20 transition-colors uppercase tracking-wider">ALL</button>
         <button id="filter-BULL"
-          class="flex-1 border border-hairline-strong text-muted font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-surface-card-elevated hover:text-body-strong transition-colors">BULL</button>
+          class="flex-1 bg-transparent text-muted font-code text-[11px] py-1.5 text-center rounded-sm border border-hairline-strong hover:border-secondary hover:text-secondary transition-colors uppercase tracking-wider">BULL</button>
         <button id="filter-BEAR"
-          class="flex-1 border border-hairline-strong text-muted font-label-caps text-label-caps py-1.5 text-center rounded-md hover:bg-surface-card-elevated hover:text-body-strong transition-colors">BEAR</button>
+          class="flex-1 bg-transparent text-muted font-code text-[11px] py-1.5 text-center rounded-sm border border-hairline-strong hover:border-error hover:text-error transition-colors uppercase tracking-wider">BEAR</button>
       </div>
       <div class="px-cell-padding-x py-3 border-b border-hairline bg-surface-card">
         <div class="relative flex items-center shadow-sm">
           <span class="material-symbols-outlined absolute left-3 text-muted text-[16px]">search</span>
           <input id="signal-search" type="text" placeholder="Search $TICKER or Theme..."
-            class="w-full bg-canvas border border-hairline rounded-md text-body-strong text-sm pl-9 pr-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted/50 transition-all">
+            class="w-full bg-canvas border border-hairline rounded-sm text-body-strong text-[13px] pl-9 pr-3 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted/50 transition-all font-code">
         </div>
       </div>
       <div id="new-signal-pill"
@@ -571,27 +569,28 @@
       <div id="signal-feed" class="flex-1 overflow-y-auto flex flex-col gap-unit p-unit pb-4 bg-canvas-deep">
         <!-- Signals populated by app.js -->
       </div>
-      <div id="pagination-container" class="px-cell-padding-x border-t border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full relative z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]" style="height: 48px;">
-        <button id="page-prev" class="w-8 h-8 flex items-center justify-center bg-surface-card hover:bg-surface-card-elevated text-body-strong rounded transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
-            <span class="material-symbols-outlined text-[18px] text-muted group-hover:text-on-surface transition-colors">chevron_left</span>
+      <div id="pagination-container" class="px-cell-padding-x border-t border-hairline bg-surface-card flex justify-between items-center shrink-0 w-full relative z-20 shadow-[0_-4px_16px_rgba(0,0,0,0.4)]" style="height: 40px;">
+        <button id="page-prev" class="w-7 h-7 flex items-center justify-center bg-transparent hover:bg-surface-card-elevated text-body-strong rounded-sm transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
+            <span class="material-symbols-outlined text-[16px] text-muted group-hover:text-on-surface transition-colors">chevron_left</span>
         </button>
-        <span id="page-indicator" class="font-headline-sm font-label-caps text-[11px] tracking-widest text-muted">PAGE 1 OF 5</span>
-        <button id="page-next" class="w-8 h-8 flex items-center justify-center bg-surface-card hover:bg-surface-card-elevated text-body-strong rounded transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
-            <span class="material-symbols-outlined text-[18px] text-muted group-hover:text-on-surface transition-colors">chevron_right</span>
+        <span id="page-indicator" class="font-code text-[10px] tracking-widest text-muted">PAGE 1 OF 5</span>
+        <button id="page-next" class="w-7 h-7 flex items-center justify-center bg-transparent hover:bg-surface-card-elevated text-body-strong rounded-sm transition-colors border border-hairline disabled:opacity-30 disabled:cursor-not-allowed group">
+            <span class="material-symbols-outlined text-[16px] text-muted group-hover:text-on-surface transition-colors">chevron_right</span>
         </button>
       </div>
     </section>
     <!-- Main Area: Center Node Container -->
     <section id="center-panel"
-      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[2] overflow-hidden">
+      class="bg-surface-card flex flex-col border border-hairline rounded-sm h-full shrink-0 relative z-10 flex-[2] overflow-hidden">
       <!-- Graph populated by app.js -->
     </section>
     <!-- Right Detail Panel -->
     <section id="analysis-node"
-      class="bg-surface-card flex flex-col border border-hairline rounded-lg h-full shrink-0 relative z-10 flex-[1.2] overflow-hidden">
+      class="bg-surface-card flex flex-col border border-hairline rounded-sm h-full shrink-0 relative z-10 flex-[1.2] overflow-hidden">
       <!-- Populated by app.js -->
     </section>
   </main>
+
   </div> <!-- End App Dashboard -->
 
   <script src="/app.js"></script>
