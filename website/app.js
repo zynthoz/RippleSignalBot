@@ -2827,6 +2827,10 @@ function updateAuthUI() {
         document.getElementById('auth-avatar').textContent = initials;
     } else {
         // Not logged in: show auth page, hide dashboard
+        if (window.location.pathname !== '/landing.html') {
+            window.location.replace('/landing.html');
+            return;
+        }
         authPage.classList.remove('hidden');
         appDashboard.classList.add('hidden');
         

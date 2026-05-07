@@ -75,32 +75,23 @@ The system is split into a few cooperating services:
 - Combines AI analysis with real delivery channels like Telegram.
 - Feels like an analyst workstation, which makes it well suited for a hackathon demo screen.
 
-## The Dashboard Experience
+## Live Product Views
 
-### Main View: Signal Feed + Topology + Analysis
+These screenshots are from the actual app experience and show how Argus AI moves from signal discovery to causal explanation.
 
-The core interface combines three synchronized panels:
+### Full Workspace Overview
 
-**Left Panel - Signal Feed**
-Live stream of market catalysts ranked by recency and confidence. Each signal shows direction (bullish/bearish/mixed), confidence score, and a one-line thesis. Filter by direction or search by ticker.
+![Argus AI dashboard overview](img3.png)
 
-**Center Panel - Catalyst Topology**
-Interactive D3 force-directed graph showing the causal chain. Root cause at center (glowing blue circle), branches for primary tickers, direct effects, secondary effects, beneficiaries, and headwinds. Color-coded by impact tone. Hover for relationship mechanics, drag to explore.
+This is the main operating view. The left rail surfaces ranked market signals, the middle panel visualizes the causal topology, and the right rail explains the selected event in plain language with confidence, horizon, and contagion path. The layout is meant to feel like an analyst workstation rather than a generic feed.
 
-**Right Panel - Analysis Node**
-Focused deep-dive on the selected signal. Displays confidence, time horizon, causal chain steps, contagion path, and market thesis. Most critical for understanding *why* a signal matters.
+### Catalyst Topology Deep-Dive
 
-### Topology Deep-Dive View
+![Argus AI topology deep-dive](img2.png)
 
-Zoomed view of the causal contagion. Shows:
-- **Root cause** (center blue node) — the driving event or catalyst.
-- **Direct exposures** — companies immediately affected.
-- **Upstream dependencies** — suppliers and sourcing partners.
-- **Downstream beneficiaries** — competitors and alternative providers.
-- **Contagion flows** — animated dashed lines showing information cascades.
-- **Exposure percentages** — estimated revenue or cost impact for each ticker.
+This zoomed graph is the heart of the product. It turns one catalyst into a branching market map: root cause at the center, direct exposures around it, and downstream winners and losers connected by color-coded relationship lines. This is the view that makes the hidden supply-chain and cross-asset links easy to understand at a glance.
 
-This view makes the hidden alpha visible: which global brands (AAPL, NVDA, DELL, etc.) rely on a disrupted facility or supply chain node?
+The point of these visuals is not just aesthetics. They show the product’s core promise: take one headline, trace the ripple effect, and surface the names that matter before the rest of the market catches up.
 
 ## Built For The Demo
 
