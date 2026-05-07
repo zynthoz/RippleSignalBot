@@ -1,0 +1,4 @@
+{
+  "outputDirectory": "website",
+  "buildCommand": "echo 'No build; static site in /website'"
+}
