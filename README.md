@@ -26,7 +26,7 @@ Most market news apps stop at the headline. Argus AI goes one step further and a
 - How confident is the system?
 - What is the second-order impact?
 
-That makes the product useful as a hackathon demo because it shows both the AI decisioning layer and the user-facing interpretation layer in one place.
+This architecture provides a professional decisioning layer alongside a robust user-facing interpretation layer.
 
 ## Product Surfaces
 
@@ -73,34 +73,21 @@ The system is split into a few cooperating services:
 - Converts headlines into a causal story instead of a generic sentiment score.
 - Shows a visual market graph rather than a plain table.
 - Combines AI analysis with real delivery channels like Telegram.
-- Feels like an analyst workstation, which makes it well suited for a hackathon demo screen.
+- Provides a professional analyst workstation experience for deep market monitoring.
 
-## Live Product Views
+## Product Features & Visualization
 
-These screenshots are from the actual app experience and show how Argus AI moves from signal discovery to causal explanation.
-
-### Full Workspace Overview
-
+### Integrated Analyst Workstation
 ![Argus AI dashboard overview](img3.png)
+The main workspace integrates a ranked signal feed with an interactive topology map and detailed analysis panel. It allows operators to monitor multiple catalysts simultaneously while providing immediate access to the underlying investment thesis, confidence metrics, and contagion risks.
 
-This is the main operating view. The left rail surfaces ranked market signals, the middle panel visualizes the causal topology, and the right rail explains the selected event in plain language with confidence, horizon, and contagion path. The layout is meant to feel like an analyst workstation rather than a generic feed.
-
-### Catalyst Topology Deep-Dive
-
+### Causal Mapping & Linkage
 ![Argus AI topology deep-dive](img2.png)
+The topology view transforms headlines into a branching market map. It identifies the root cause at the center and radiates out to show direct exposures, downstream winners (beneficiaries), and losers (headwinds) connected by color-coded relationship lines that clarify the structural links between assets.
 
-This zoomed graph is the heart of the product. It turns one catalyst into a branching market map: root cause at the center, direct exposures around it, and downstream winners and losers connected by color-coded relationship lines. This is the view that makes the hidden supply-chain and cross-asset links easy to understand at a glance.
-
-### Alternate Causal Chain View
-
+### Supply Chain Contagion Tracing
 ![Argus AI causal chain supply ripple](img1.png)
+The system identifies complex market setups, such as logistics-driven disruptions that ripple into airfreight substitution and manufacturing delays. This feature enables traders to visualize both immediate and delayed market reactions across diverse asset classes and sectors.
 
-This example shows a different market setup: a logistics-driven disruption that ripples into downstream customer exposure, airfreight substitution, and inventory effects. Including a second graph makes the README more complete because it demonstrates that Argus AI is not limited to one narrative style. It can trace both direct and second-order market reactions across different catalyst types.
 
-The point of these visuals is not just aesthetics. They show the product’s core promise: take one headline, trace the ripple effect, and surface the names that matter before the rest of the market catches up.
 
-## Built For The Demo
-
-This repository is designed to showcase the core product idea first and the implementation second. If you are presenting it at a hackathon, the strongest narrative is:
-
-> **Argus AI** is an AI market-intelligence layer that turns breaking news into structured, explainable trading signals. It finds the hidden market actors and supply chain risks that most traders miss.
