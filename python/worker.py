@@ -1007,8 +1007,8 @@ def main() -> int:
 
                     # Expand reasoning with causal chain and source attribution.
                     root = signal.get('root_cause', '')
-                    first_order = '; '.join(signal.get('first_order_effects', [])[:2])
-                    second_order = '; '.join(signal.get('second_order_effects', [])[:2])
+                    first_order = '; '.join([x.get('label', '') if isinstance(x, dict) else str(x) for x in signal.get('first_order_effects', [])[:2]])
+                    second_order = '; '.join([x.get('label', '') if isinstance(x, dict) else str(x) for x in signal.get('second_order_effects', [])[:2]])
                     source_attr = signal.get('source_attribution', '')
                     base_reasoning = signal.get('reasoning', '')
                     details = [
