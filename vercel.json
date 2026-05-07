@@ -1,4 +1,18 @@
 {
   "outputDirectory": "website",
-  "buildCommand": "echo 'No build; static site in /website'"
+  "buildCommand": "echo 'No build; static site in /website'",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/index.html"
+    }
+  ]
 }
