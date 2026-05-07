@@ -1,267 +1,389 @@
-# Product Requirements Document
-# MarketPulse AI — Telegram Market Signal Bot
-**Version:** 1.0 (Hackathon MVP)
-**Date:** May 2026
-**Status:** Draft
-**Platform:** Telegram Bot (Webhook via ngrok)
+# Argus AI Product Requirements Document
 
----
+## Overview
 
-## 1. Executive Summary
+Argus AI is a market-intelligence platform that turns finance headlines into structured, explainable trading signals.
 
-Argus AI is a Telegram bot that scrapes market and business news, interprets it using a LangGraph agent powered by Google Gemini, and pushes real-time investment signals directly to users. The system performs causal chain analysis — tracing a news event to the industries and stocks it affects, both directly and indirectly — and delivers signals as Telegram notifications. Built for a hackathon MVP, the system is self-hosted on a local machine and exposed publicly via ngrok.
+The current codebase includes:
 
----
+- A public landing page that introduces the product
+- A dashboard that shows the signal feed, catalyst topology, and analysis panel
+- A Telegram bot for alerts and quick commands
+- A Node.js API layer for auth, watchlists, notifications, signals, and webhook handling
+- A Python worker that uses Gemini to generate structured market signals
+- PostgreSQL and Redis for persistence, queueing, and deduplication
 
-## 2. Problem Statement
+This PRD describes the actual product as implemented in the repository.
 
-Retail investors face three core problems:
+## Problem Statement
 
-- **Information overload** — hundreds of news items per day with no filtering for market relevance
-- **Slow reaction time** — by the time an investor reads and interprets a story, the market has already moved
-- **Shallow analysis** — most tools surface headlines without tracing downstream impact to specific tickers
+Market participants need more than raw headlines.
 
-MarketPulse AI automates the full pipeline: **ingest → interpret → causal chain → signal → notify.**
+They need a system that can:
 
----
+- Detect relevant news fast
+- Explain why a story matters to markets
+- Identify which tickers are directly and indirectly affected
+- Show whether the impact is bullish, bearish, or mixed
+- Surface second-order supply chain and contagion effects
 
-## 3. Goals
+## Product Goal
 
-### Product Goals
-- Deliver AI-interpreted market signals inside Telegram within 60 seconds of a relevant news event
-- Perform multi-hop causal chain analysis linking events to primary and secondary affected stocks
-- Support multiple users discovering and using the bot via a shared Telegram link
-- Function reliably in a self-hosted, hackathon environment
+Argus AI should help a user move from headline to market thesis as quickly as possible.
 
-### MVP Scope (In)
-- NewsAPI ingestion on a polling schedule
-- Gemini-powered LangGraph agent for signal generation
-- Causal chain reasoning (event → industry → stocks → adjacent stocks)
-- Telegram push notifications via Telegraf.js
-- Basic user commands: `/start`, `/subscribe`, `/unsubscribe`, `/latest`
-- Redis Streams as the internal message queue
-- PostgreSQL for user and signal storage
-- ngrok webhook tunnel for public accessibility
+The product should make it easy to:
 
-### MVP Scope (Out)
-- User authentication or premium tiers
-- Mobile/web dashboard
-- Portfolio tracking
-- Backtesting or historical signal accuracy metrics
-- Multi-language support
+- Discover a signal
+- Understand the causal chain behind it
+- Evaluate confidence and time horizon
+- Save a ticker-based watchlist
+- Receive alerts in the dashboard and Telegram
 
----
+## Product Surfaces
 
-## 4. User Personas
+### Landing Page
 
-| Persona | Description |
-|---|---|
-| **Hackathon Judge** | Evaluates the product live during demo; needs the bot to respond clearly and quickly |
-| **Retail Investor** | Wants fast, digestible signals without doing deep research themselves |
-| **Curious Tester** | Discovers the bot via a shared link; explores commands casually |
+The landing page is the first experience for new visitors.
 
----
+It explains the product, shows the value proposition, and links to the dashboard and Telegram bot.
 
-## 5. Features & Requirements
+### Dashboard
 
-### 5.1 News Ingestion
-- Poll **NewsAPI** every 60 seconds for top business and financial headlines
-- Filter by categories: business, finance, markets, geopolitics
-- Deduplicate articles using URL hashing to avoid reprocessing
-- Push new articles into **Redis Streams** for the AI worker to consume
+The dashboard is the authenticated operating surface.
 
-### 5.2 AI Signal Engine (LangGraph + Gemini)
-This is the core of the product. A LangGraph agent receives a news article and produces a structured investment signal.
+It includes:
 
-**Agent steps:**
-1. Read and classify the news article (geopolitical, earnings, macro, sector-specific)
-2. Extract named entities — companies, countries, commodities, people
-3. Perform causal chain traversal:
-   - Identify the primary industry affected
-   - Map to directly impacted stocks
-   - Identify adjacent/secondary stocks affected
-4. Assign signal direction: `BULLISH` / `BEARISH` / `NEUTRAL`
-5. Assign confidence score: 0–100
-6. Generate a 2–3 sentence plain-English reasoning summary
-7. Output structured signal (see schema below)
+- Signal feed
+- Catalyst topology graph
+- Analysis node panel
+- Notification popover
+- Watchlist drawer
+- Login and registration UI
 
-**Example causal chain:**
-```
-News: "US launches missile strike in Middle East"
-→ Primary: Defense manufacturers → RTX, LMT, NOC (BULLISH)
-→ Adjacent: Oil supply risk → XOM, CVX (BULLISH)
-→ Risk-off: Airlines, tourism → DAL, UAL, MAR (BEARISH)
-```
+### Telegram Bot
 
-**Signal output schema:**
-```json
-{
-  "tickers": ["RTX", "LMT"],
-  "direction": "BULLISH",
-  "confidence": 82,
-  "reasoning": "US military action increases demand for Raytheon and Lockheed missiles and defense systems. Both companies hold active DoD contracts for the weapon systems reportedly used.",
-  "time_horizon": "intraday",
-  "source_headline": "US launches missile strike...",
-  "source_url": "https://...",
-  "timestamp": "2026-05-03T08:42:00Z"
-}
-```
+The bot is a companion delivery channel.
 
-**LLM:** Google Gemini via Google AI Studio API key
-**Framework:** LangChain + LangGraph (stateful agent with tool use)
+Supported commands:
 
-### 5.3 Telegram Bot (Telegraf.js)
-**Mode:** Webhook (via ngrok free tier)
-**Discoverability:** Publicly accessible via `t.me/YourBotName`; share link to distribute
+- `/start`
+- `/help`
+- `/latest`
+- `/subscribe`
+- `/unsubscribe`
+- `/broadcast on|off`
+- `/linktelegram <code>`
 
-**Commands:**
+### Backend API
 
-| Command | Description |
-|---|---|
-| `/start` | Welcome message + onboarding instructions |
-| `/subscribe` | Subscribe to receive live signal notifications |
-| `/unsubscribe` | Stop receiving notifications |
-| `/latest` | Return the 5 most recent signals |
-| `/help` | List available commands |
+The Node service exposes the app data and handles authentication, watchlist management, notifications, and signal retrieval.
 
-**Notification format:**
-```
-📈 BULLISH SIGNAL — RTX, LMT
-Confidence: 82%
-Time Horizon: Intraday
+## Core User Journey
 
-US military action increases demand for Raytheon and 
-Lockheed defense systems. Both hold active DoD contracts 
-for systems reportedly used in the strike.
+1. A visitor opens the landing page.
+2. The visitor launches the dashboard or Telegram bot.
+3. The user signs up or logs in on the web app.
+4. The dashboard restores the session and shows the main workspace.
+5. The user scans the signal feed.
+6. The user selects a signal and inspects the causal topology.
+7. The user reads the analysis node and signal metadata.
+8. The user creates watchlist rules.
+9. The user receives in-app notifications and Telegram alerts for matching signals.
+10. The user can link Telegram to the web account using a generated code.
 
-Source: Reuters — "US launches missile strike in Middle East"
-🔗 https://reuters.com/...
-```
+## Functional Requirements
 
-### 5.4 Data Storage (PostgreSQL)
+### 1. News Ingestion
 
-**users table**
-| Column | Type | Description |
-|---|---|---|
-| id | UUID | Primary key |
-| telegram_id | BIGINT | Telegram user ID |
-| username | VARCHAR | Telegram username |
-| subscribed | BOOLEAN | Receiving notifications |
-| created_at | TIMESTAMP | Registration time |
+The system shall:
 
-**signals table**
-| Column | Type | Description |
-|---|---|---|
-| id | UUID | Primary key |
-| tickers | TEXT[] | Affected tickers |
-| direction | VARCHAR | BULLISH / BEARISH / NEUTRAL |
-| confidence | INTEGER | 0–100 |
-| reasoning | TEXT | AI-generated summary |
-| source_url | TEXT | Original article URL |
-| created_at | TIMESTAMP | Signal generation time |
+- Poll NewsAPI business headlines on a schedule
+- Keep only articles within the configured freshness window
+- Deduplicate repeated stories in Redis
+- Mark articles as pending while they are being processed
+- Promote processed articles into a seen cache
 
-### 5.5 Message Queue (Redis Streams)
+### 2. AI Signal Generation
 
-- **Stream:** `news:raw` — articles from NewsAPI poller waiting to be processed
-- **Stream:** `signals:ready` — processed signals waiting to be dispatched to Telegram
-- Consumer groups used to ensure no article is processed twice and no signal is sent twice
+The Python worker shall:
 
----
+- Send relevant articles to Gemini
+- Return a single structured JSON signal
+- Extract direction, confidence, root cause, and reasoning
+- Identify positively and negatively affected tickers
+- Build a causal chain and relationship graph
+- Infer supply-chain and contagion relationships when possible
 
-## 6. System Architecture
+The generated signal should include, when available:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Your Machine                         │
-│                                                         │
-│  ┌─────────────┐     ┌──────────────────────────────┐  │
-│  │ NewsAPI     │────▶│ Redis Stream: news:raw        │  │
-│  │ Poller      │     └──────────────┬───────────────┘  │
-│  │ (60s cron)  │                    │                   │
-│  └─────────────┘                    ▼                   │
-│                        ┌────────────────────────┐       │
-│                        │ LangGraph Agent Worker  │       │
-│                        │ (Gemini via AI Studio)  │       │
-│                        └───────────┬────────────┘       │
-│                                    │                     │
-│                        ┌───────────▼────────────┐       │
-│                        │ Redis Stream:           │       │
-│                        │ signals:ready           │       │
-│                        └───────────┬────────────┘       │
-│                                    │                     │
-│  ┌─────────────┐      ┌────────────▼───────────┐        │
-│  │ PostgreSQL  │◀────▶│ Telegraf.js Bot         │        │
-│  │ (users +    │      │ (webhook mode)          │        │
-│  │  signals)   │      └────────────┬───────────┘        │
-│  └─────────────┘                   │                     │
-│                                    │                     │
-└────────────────────────────────────┼────────────────────┘
-                                     │
-                              ┌──────▼──────┐
-                              │    ngrok    │
-                              │ free tunnel │
-                              └──────┬──────┘
-                                     │
-                              ┌──────▼──────┐
-                              │  Telegram   │
-                              │  Servers    │
-                              └─────────────┘
-```
+- `tickers`
+- `ticker_profiles`
+- `direction`
+- `confidence`
+- `reasoning`
+- `source_headline`
+- `source_name`
+- `source_attribution`
+- `root_cause`
+- `time_horizon`
+- `geography`
+- `market_consensus_divergence`
+- `investment_thesis`
+- `first_order_effects`
+- `second_order_effects`
+- `positively_affected`
+- `negatively_affected`
+- `thesis_risks`
+- `catalyst_chain`
+- `relationship_graph`
+- `vulnerability_type`
+- `contagion_path`
+- `chokepoint`
 
----
+### 3. Signal Storage
 
-## 7. Tech Stack Summary
+The system shall store signals in PostgreSQL.
 
-| Layer | Technology | Reason |
-|---|---|---|
-| News Source | NewsAPI | Simple REST API, no scraping infrastructure needed for MVP |
-| AI Framework | LangChain + LangGraph | Stateful agent, tool use, structured output parsing |
-| LLM | Google Gemini (AI Studio) | Free API key, strong reasoning, good context window |
-| Message Queue | Redis Streams | Lightweight, fast, easy local setup |
-| Database | PostgreSQL | Reliable relational store for users and signals |
-| Bot Framework | Telegraf.js | Best-in-class Telegram bot library, clean webhook support |
-| Tunnel | ngrok (free tier) | Exposes localhost webhook to Telegram publicly |
-| Runtime | Node.js + Python | Telegraf.js on Node; LangGraph agent on Python |
-| Containerization | Docker Compose | Single command to spin up all services locally |
+Signals must be available for:
 
----
+- Dashboard rendering
+- Telegram delivery
+- Notification matching
+- Performance tracking
 
-## 8. Technical Considerations & Risks
+### 4. Signal Publishing
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| ngrok restarts / machine sleeps | Bot goes offline for all users | Keep machine awake; set ngrok to auto-reconnect |
-| NewsAPI free tier rate limit (100 req/day) | Reduced news coverage | Cache responses; poll smartly; upgrade if needed |
-| Gemini API quota limits | AI worker stalls | Add retry logic with exponential backoff |
-| LangGraph agent hallucinating tickers | Bad signals sent to users | Validate tickers against a known stock list before sending |
-| Redis or PostgreSQL crash | Data loss / bot failure | Docker restart policies; pgdump before demo |
-| Telegram webhook timeout (5s limit) | Bot appears unresponsive | Acknowledge webhook immediately; process signal async |
+The worker shall publish processed signals to the `signals:ready` Redis stream.
 
----
+That stream supports:
 
-## 9. Development Milestones (Hackathon Timeline)
+- Server-sent event updates in the dashboard
+- Deduplication and backfill
+- Downstream delivery to notification consumers
 
-| Milestone | Tasks |
-|---|---|
-| **Phase 1 — Infrastructure** | Docker Compose setup, PostgreSQL schema, Redis Streams, ngrok tunnel, Telegraf.js skeleton with webhook |
-| **Phase 2 — Data Pipeline** | NewsAPI poller, deduplication, push to Redis Stream |
-| **Phase 3 — AI Agent** | LangGraph agent with Gemini, causal chain logic, structured signal output, ticker validation |
-| **Phase 4 — Bot Commands** | `/start`, `/subscribe`, `/unsubscribe`, `/latest`, notification dispatcher |
-| **Phase 5 — Integration & Demo** | End-to-end test, signal quality review, share bot link, demo preparation |
+### 5. Web Authentication
 
----
+The web app shall support:
 
-## 10. Out of Scope (Post-Hackathon Ideas)
+- Registration
+- Login
+- Session restoration
+- Logout
 
-- Move to real hosting (Railway / Fly.io / VPS) for 24/7 uptime
-- Add sector subscription filters (`/subscribe tech`, `/subscribe energy`)
-- User watchlists with ticker-specific alerts
-- Signal accuracy tracking and feedback (`👍 / 👎` buttons)
-- Web dashboard for signal history
-- Replace NewsAPI with full Scrapy + Playwright scraper for broader coverage
-- Fine-tune Gemini on historical news-to-price-movement datasets
-- Add crypto market signals
+The user record shall support:
 
----
+- Email
+- Password hash
+- Display name
+- Session token
+- Telegram link code
+- Telegram ID
 
-*MarketPulse AI — Hackathon MVP PRD v1.0*
+### 6. Watchlist Management
+
+Authenticated users shall be able to create, update, disable, and delete watchlist rules.
+
+Watchlist rules support:
+
+- Ticker
+- Direction filter
+- Minimum confidence
+- Maximum confidence
+- Time horizon
+- Source quality
+- Telegram notification toggle
+- In-app notification toggle
+
+Constraints:
+
+- Maximum 20 active rules per user
+- Tickers are normalized to uppercase
+- Watchlist rules are user-scoped
+
+### 7. Notifications
+
+The app shall support in-app notifications for signals that match a user’s watchlist.
+
+It shall support:
+
+- Unread count polling
+- Notification list rendering
+- Mark as read
+- Mark all as read
+
+### 8. Telegram Integration
+
+The bot shall:
+
+- Introduce itself as ArgusBot
+- Give a short product intro on `/start`
+- Explain commands on `/help`
+- Return recent signals via `/latest`
+- Manage subscription state
+- Toggle broadcast mode
+- Link Telegram to the web account through a generated code
+
+## Dashboard Requirements
+
+### Signal Feed
+
+The feed shall:
+
+- Show bullish, bearish, and mixed signals
+- Display confidence and time-ago information
+- Show ticker symbols and headline text
+- Allow filtering by direction
+- Allow search by ticker or theme
+
+### Catalyst Topology
+
+The topology view shall:
+
+- Render the root cause as the center node
+- Render primary tickers, direct effects, secondary effects, beneficiaries, and headwinds as branches
+- Color nodes and links by impact tone
+- Support drag interaction
+- Support fullscreen or expanded topology viewing
+- Show relationship labels and exposure details when available
+
+### Analysis Node
+
+The analysis panel shall:
+
+- Show selected signal details
+- Show confidence and impact horizon
+- Show the causal chain
+- Show the contagion path
+- Show source and article metadata
+
+## Landing Page Requirements
+
+The landing page shall:
+
+- Be the first page a user sees on the deployed site
+- Present the product story before login
+- Link clearly to the dashboard
+- Link clearly to Telegram
+- Use the product logo as a home link
+
+## Data Model
+
+### Users
+
+The users table supports both web auth and Telegram linking.
+
+Important fields:
+
+- `telegram_id`
+- `email`
+- `password_hash`
+- `display_name`
+- `session_token`
+- `authenticated_at`
+- `telegram_link_code`
+- `telegram_broadcast`
+
+### Signals
+
+Signals store both the original event and the AI-generated analysis.
+
+Important fields:
+
+- `tickers`
+- `ticker_profiles`
+- `direction`
+- `confidence`
+- `reasoning`
+- `source_url`
+- `time_horizon`
+- `root_cause`
+- `source_headline`
+- `source_name`
+- `source_attribution`
+- `geography`
+- `market_consensus_divergence`
+- `investment_thesis`
+- `first_order_effects`
+- `second_order_effects`
+- `positively_affected`
+- `negatively_affected`
+- `thesis_risks`
+- `catalyst_chain`
+- `relationship_graph`
+
+### Watchlist
+
+Watchlist rules are stored per user and determine alert preferences.
+
+### Notifications
+
+Notifications link a user, a signal, and optionally a watchlist rule.
+
+## API Requirements
+
+The Node service shall provide:
+
+- `GET /health`
+- `GET /api/signals`
+- `GET /api/signals/:id`
+- `GET /api/stats`
+- `GET /api/events`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET /api/watchlist`
+- `POST /api/watchlist`
+- `PUT /api/watchlist/:id`
+- `DELETE /api/watchlist/:id`
+- `GET /api/notifications`
+- `POST /api/notifications/:id/read`
+- `POST /api/notifications/read-all`
+- `POST /webhook` for Telegram updates
+
+## Non-Functional Requirements
+
+- The dashboard should load without a build step in the deployed static hosting setup.
+- The backend should work locally with Docker for PostgreSQL and Redis.
+- The system should deduplicate repeated articles and repeated processed signals.
+- The UI should remain legible in a dark theme.
+- The signal graph should support partially structured AI output.
+- The app should recover sessions from localStorage after refresh.
+
+## Success Criteria
+
+The MVP is successful if a user can:
+
+- Open the landing page
+- Understand what the product does quickly
+- Open the dashboard and see live signal cards
+- Select a signal and inspect the causal graph
+- Create a watchlist rule
+- Receive a notification for a matching signal
+- Link the Telegram bot to the web account
+
+## Out of Scope
+
+The current MVP does not need:
+
+- Broker integration
+- Order execution
+- Portfolio management
+- Advanced charting overlays
+- Multi-user collaboration features
+- Native mobile apps
+
+## Implementation Notes
+
+- The Node server owns web auth, Telegram webhook handling, API routes, and static file delivery.
+- The Python worker owns AI analysis, signal enrichment, and publication into Redis and PostgreSQL.
+- The dashboard consumes signals through REST and SSE.
+- The Telegram bot is a companion delivery surface, not the primary analysis interface.
+
+## Hackathon Positioning
+
+The strongest demo line is:
+
+> Argus AI takes a market-moving headline, turns it into a causal map, highlights the tickers that matter, and delivers the result in both the dashboard and Telegram.
+
+That is the product this repository currently implements.

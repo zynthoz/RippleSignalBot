@@ -91,6 +91,12 @@ This is the main operating view. The left rail surfaces ranked market signals, t
 
 This zoomed graph is the heart of the product. It turns one catalyst into a branching market map: root cause at the center, direct exposures around it, and downstream winners and losers connected by color-coded relationship lines. This is the view that makes the hidden supply-chain and cross-asset links easy to understand at a glance.
 
+### Alternate Causal Chain View
+
+![Argus AI causal chain supply ripple](img1.png)
+
+This example shows a different market setup: a logistics-driven disruption that ripples into downstream customer exposure, airfreight substitution, and inventory effects. Including a second graph makes the README more complete because it demonstrates that Argus AI is not limited to one narrative style. It can trace both direct and second-order market reactions across different catalyst types.
+
 The point of these visuals is not just aesthetics. They show the product’s core promise: take one headline, trace the ripple effect, and surface the names that matter before the rest of the market catches up.
 
 ## Built For The Demo
