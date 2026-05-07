@@ -638,8 +638,23 @@ def generate_signal_with_gemini(article: dict) -> dict:
     parsed['reasoning'] = str(parsed.get('reasoning', ''))
     parsed['time_horizon'] = str(parsed.get('time_horizon', 'short-term'))
     parsed['root_cause'] = str(parsed.get('root_cause', '')).strip()
-    parsed['first_order_effects'] = [str(x) for x in parsed.get('first_order_effects', []) if str(x).strip()]
-    parsed['second_order_effects'] = [str(x) for x in parsed.get('second_order_effects', []) if str(x).strip()]
+    # Keep first/second order effects as dicts (not strings) so they serialize properly to JSON
+    parsed['first_order_effects'] = [
+        {
+            'label': str(x.get('label', '') if isinstance(x, dict) else x).strip(),
+            'details': str(x.get('details', '') if isinstance(x, dict) else '').strip()
+        }
+        for x in parsed.get('first_order_effects', [])
+        if (isinstance(x, dict) and x.get('label')) or (isinstance(x, str) and x.strip())
+    ]
+    parsed['second_order_effects'] = [
+        {
+            'label': str(x.get('label', '') if isinstance(x, dict) else x).strip(),
+            'details': str(x.get('details', '') if isinstance(x, dict) else '').strip()
+        }
+        for x in parsed.get('second_order_effects', [])
+        if (isinstance(x, dict) and x.get('label')) or (isinstance(x, str) and x.strip())
+    ]
     parsed['positively_affected'] = [str(x) for x in parsed.get('positively_affected', []) if str(x).strip()]
     parsed['negatively_affected'] = [str(x) for x in parsed.get('negatively_affected', []) if str(x).strip()]
     # Require both sides when direction is mixed or when one side is missing.

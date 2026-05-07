@@ -136,7 +136,7 @@ function normalizeGraphNode(node, fallbackRelationship = 'related exposure', fal
         direction: rawDirection,
         conviction: String(node.conviction || node.weight || 'medium').toLowerCase(),
         relationship: String(node.relationship || node.link || fallbackRelationship || '').trim(),
-        why_it_matters: String(node.why_it_matters || node.reason || node.impact || '').trim(),
+        why_it_matters: String(node.why_it_matters || node.details || node.reason || node.impact || '').trim(),
         exposure_pct: String(node.exposure_pct || '').trim(),
         children: Array.isArray(node.children)
             ? node.children.map((child) => normalizeGraphNode(child, `${label} follow-through`, rawDirection)).filter(Boolean)
@@ -156,7 +156,19 @@ function buildFallbackGraph(signal) {
         // For ticker items that are objects (from Gemini), preserve per-item impact/direction.
         const rawItems = parseMaybeJson(items, items);
         const nodes = (Array.isArray(rawItems) ? rawItems : [])
-            .map((item) => normalizeGraphNode(item, label, tone))
+            .map((item) => {
+                // Ensure item is properly parsed if it came as a stringified dict
+                let parsed = item;
+                if (typeof item === 'string' && item.startswith('{')) {
+                    try {
+                        // Try to parse as JSON first
+                        parsed = JSON.parse(item);
+                    } catch {
+                        // If that fails, keep original
+                    }
+                }
+                return normalizeGraphNode(parsed, label, tone);
+            })
             .filter(Boolean);
         if (nodes.length > 0) {
             branches.push({

@@ -75,24 +75,35 @@ The system is split into a few cooperating services:
 - Combines AI analysis with real delivery channels like Telegram.
 - Feels like an analyst workstation, which makes it well suited for a hackathon demo screen.
 
+## The Dashboard Experience
+
+### Main View: Signal Feed + Topology + Analysis
+
+The core interface combines three synchronized panels:
+
+**Left Panel - Signal Feed**
+Live stream of market catalysts ranked by recency and confidence. Each signal shows direction (bullish/bearish/mixed), confidence score, and a one-line thesis. Filter by direction or search by ticker.
+
+**Center Panel - Catalyst Topology**
+Interactive D3 force-directed graph showing the causal chain. Root cause at center (glowing blue circle), branches for primary tickers, direct effects, secondary effects, beneficiaries, and headwinds. Color-coded by impact tone. Hover for relationship mechanics, drag to explore.
+
+**Right Panel - Analysis Node**
+Focused deep-dive on the selected signal. Displays confidence, time horizon, causal chain steps, contagion path, and market thesis. Most critical for understanding *why* a signal matters.
+
+### Topology Deep-Dive View
+
+Zoomed view of the causal contagion. Shows:
+- **Root cause** (center blue node) — the driving event or catalyst.
+- **Direct exposures** — companies immediately affected.
+- **Upstream dependencies** — suppliers and sourcing partners.
+- **Downstream beneficiaries** — competitors and alternative providers.
+- **Contagion flows** — animated dashed lines showing information cascades.
+- **Exposure percentages** — estimated revenue or cost impact for each ticker.
+
+This view makes the hidden alpha visible: which global brands (AAPL, NVDA, DELL, etc.) rely on a disrupted facility or supply chain node?
+
 ## Built For The Demo
 
 This repository is designed to showcase the core product idea first and the implementation second. If you are presenting it at a hackathon, the strongest narrative is:
 
-> Argus AI is an AI market-intelligence layer that turns breaking news into structured, explainable trading signals.
-
-### Suggested Screenshot Slots
-
-Add your hero images here when you are ready:
-
-- Dashboard overview
-- Signal feed close-up
-- Catalyst topology graph
-- Analysis node detail panel
-- Telegram alert example
-
-## Notes
-
-- The product name in the UI is **Argus AI**.
-- The repository still contains the bot, worker, and dashboard pieces that power the full experience.
-- If you want, this README can be extended later with a tighter founder story, judging criteria callout, or a one-paragraph elevator pitch for the hackathon stage.
+> **Argus AI** is an AI market-intelligence layer that turns breaking news into structured, explainable trading signals. It finds the hidden market actors and supply chain risks that most traders miss.

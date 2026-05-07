@@ -62,11 +62,31 @@ async function start() {
 
     bot.start((ctx) => {
       console.log('Command: /start');
-      return ctx.reply('MarketPulse AI is online. Use /help to see available commands.');
+      return ctx.reply(
+        '<b>🔎 Welcome to ArgusBot!</b>\n\n' +
+        'I\'m an <i>AI market-intelligence system</i> that turns breaking finance news into structured trading signals.\n\n' +
+        '<b>📊 What I do:</b>\n' +
+        '• <code>Monitor</code> market-moving headlines in real time\n' +
+        '• <code>Extract</code> root causes, affected tickers, and direction\n' +
+        '• <code>Rank</code> signals by confidence and impact\n' +
+        '• <code>Send</code> alerts straight to your Telegram\n\n' +
+        'Use /help to see available commands.',
+        { parse_mode: 'HTML' }
+      );
     });
     bot.help((ctx) => {
       console.log('Command: /help');
-      ctx.reply('/start - welcome\n/linktelegram <code> - link your website account\n/broadcast <on|off> - toggle receiving all signals vs watchlist only\n/subscribe - receive signals\n/unsubscribe - stop signals\n/latest - recent signals');
+      ctx.reply(
+        '<b>ArgusBot Commands</b>\n\n' +
+        '<b>/start</b> - welcome & intro\n' +
+        '<b>/latest</b> - view recent signals\n' +
+        '<b>/subscribe</b> - receive all signals\n' +
+        '<b>/unsubscribe</b> - stop receiving signals\n' +
+        '<b>/broadcast</b> <on|off> - all signals or only watchlist\n' +
+        '<b>/linktelegram</b> <code> - link your web account\n\n' +
+        'Use /latest to see the most recent market-catalyst signals analyzed by AI.',
+        { parse_mode: 'HTML' }
+      );
     });
 
     bot.catch((err, ctx) => {
@@ -77,7 +97,7 @@ async function start() {
       console.log('Command: /linktelegram');
       const code = (ctx.message.text.split(' ')[1] || '').trim().toUpperCase();
       if (!code) {
-        return ctx.reply('Please provide your link code. Example: /linktelegram ABCDEF');
+        return ctx.reply('Please provide your link code.\n\nExample: <code>/linktelegram ABCDEF</code>', { parse_mode: 'HTML' });
       }
 
       const telegramId = ctx.from?.id;
@@ -97,14 +117,19 @@ async function start() {
         );
 
         if (result.rowCount === 0) {
-          return ctx.reply('Invalid link code. Please check the website and try again.');
+          return ctx.reply('<b>❌ Invalid link code</b>\n\nPlease check the website and try again.', { parse_mode: 'HTML' });
         }
 
         const user = result.rows[0];
-        await ctx.reply(`Success! Your Telegram account is now linked to your MarketPulse AI profile (${user.display_name}).\n\nBy default, you will receive all signals. Use /broadcast off to only receive signals that match your website watchlist.`);
+        await ctx.reply(
+          `<b>✅ Account Linked!</b>\n\n` +
+          `Your Telegram is now linked to <b>${escapeHtml(user.display_name)}</b>.\n\n` +
+          `By default, you receive all signals. Use /broadcast off to receive only watchlist matches.`,
+          { parse_mode: 'HTML' }
+        );
       } catch (err) {
         console.error('Error linking telegram:', err);
-        ctx.reply('An error occurred while linking your account. Please try again.');
+        ctx.reply('<b>⚠️ Error</b>\n\nFailed to link account. Please try again.', { parse_mode: 'HTML' });
       }
     });
 
@@ -116,12 +141,12 @@ async function start() {
 
       if (mode === 'on') {
         await pool.query('UPDATE users SET telegram_broadcast = true WHERE telegram_id = $1', [telegramId]);
-        return ctx.reply('Broadcast ON: You will receive all MarketPulse AI signals.');
+        return ctx.reply('<b>📡 Broadcast: ON</b>\n\nYou will receive <b>all</b> ArgusBot signals.', { parse_mode: 'HTML' });
       } else if (mode === 'off') {
         await pool.query('UPDATE users SET telegram_broadcast = false WHERE telegram_id = $1', [telegramId]);
-        return ctx.reply('Broadcast OFF: You will only receive signals that match your website watchlist.');
+        return ctx.reply('<b>📡 Broadcast: OFF</b>\n\nYou will only receive signals matching your watchlist.', { parse_mode: 'HTML' });
       } else {
-        return ctx.reply('Please specify on or off. Example: /broadcast off');
+        return ctx.reply('Please specify <code>on</code> or <code>off</code>.\n\nExample: <code>/broadcast off</code>', { parse_mode: 'HTML' });
       }
     });
 
@@ -139,7 +164,7 @@ async function start() {
         [telegramId, username],
       );
 
-      await ctx.reply('You are subscribed to MarketPulse AI signals.');
+      await ctx.reply('<b>✅ Subscribed</b>\n\nYou will now receive ArgusBot signal alerts.', { parse_mode: 'HTML' });
     });
 
     bot.command('unsubscribe', async (ctx) => {
@@ -154,7 +179,7 @@ async function start() {
         [telegramId],
       );
 
-      await ctx.reply('You are unsubscribed from MarketPulse AI signals.');
+      await ctx.reply('<b>❌ Unsubscribed</b>\n\nYou will no longer receive ArgusBot signal alerts.', { parse_mode: 'HTML' });
     });
 
     bot.command('latest', async (ctx) => {
@@ -168,7 +193,7 @@ async function start() {
       );
 
       if (result.rows.length === 0) {
-        await ctx.reply('No signals have been stored yet.');
+        await ctx.reply('<b>📊 No signals yet</b>\n\nWaiting for market catalysts to be analyzed...', { parse_mode: 'HTML' });
         return;
       }
 
@@ -719,7 +744,7 @@ async function start() {
 
   server.listen(PORT, () => {
     void (async () => {
-      console.log(`MarketPulse scaffold listening on http://localhost:${PORT}`);
+      console.log(`ArgusBot listening on http://localhost:${PORT}`);
 
       if (bot && WEBHOOK_DOMAIN) {
         try {
