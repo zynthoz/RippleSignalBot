@@ -93,7 +93,13 @@ Telegram webhooks need a public HTTPS URL, so `http://localhost:3000` will not w
 
 If you are only testing the dashboard locally, open the app from the Node server at `http://localhost:3000/` after starting `npm start`.
 
-If the dashboard is hosted on Vercel, set `window.API_BASE_URL` in [website/config.js](website/config.js) to your ngrok `https://...` URL so the browser sends `/api/*` requests to the backend instead of Vercel.
+For a clean local setup with ngrok, run the dashboard proxy instead of opening the ngrok URL directly:
+
+```bash
+NGROK_API_URL=https://your-ngrok-url.ngrok-free.app npm run proxy
+```
+
+Then open `http://localhost:4173/` in your browser. The proxy will forward `/api/*` to ngrok and add the `ngrok-skip-browser-warning` header server-side.
 
 ## What each process does
 

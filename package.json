@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "proxy": "node local-dashboard-proxy.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.5.0",

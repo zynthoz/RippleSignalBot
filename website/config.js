@@ -1,3 +1,3 @@
-// Set this to your ngrok HTTPS URL when deploying the dashboard to Vercel.
-// Leave it empty for local same-origin development.
+// Leave empty for local same-origin development.
+// A local proxy can forward /api/* to ngrok server-side.
 window.API_BASE_URL = 'https://thursday-debating-badland.ngrok-free.dev';
