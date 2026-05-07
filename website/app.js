@@ -15,6 +15,22 @@ const pageSize = 10;
 let isTopologyFullscreen = false;
 let topologyViewMode = 'topology';
 let activeTopologySignal = null;
+const API_BASE_URL = String(window.API_BASE_URL || '').trim().replace(/\/$/, '');
+
+function apiUrl(path) {
+    const normalizedPath = String(path || '');
+    if (!API_BASE_URL) return normalizedPath;
+    return `${API_BASE_URL}${normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`}`;
+}
+
+function apiFetch(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('ngrok-skip-browser-warning', 'true');
+    return fetch(apiUrl(path), {
+        ...options,
+        headers,
+    });
+}
 
 // Auth & User state
 let currentUser = null;
@@ -80,14 +96,19 @@ function normalizeTextList(value) {
 function normalizeGraphNode(node, fallbackRelationship = 'related exposure', fallbackTone = 'neutral') {
     if (!node) return null;
 
+    const looksLikeTicker = (value) => {
+        const text = String(value || '').trim().toUpperCase();
+        return Boolean(text) && text.length <= 5 && /^[A-Z]+$/.test(text);
+    };
+
     if (typeof node === 'string') {
         const label = node.trim();
         if (!label) return null;
         return {
             id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             label,
-            ticker: label.length <= 5 ? label.toUpperCase() : '',
-            kind: 'theme',
+            ticker: looksLikeTicker(label) ? label.toUpperCase() : '',
+            kind: looksLikeTicker(label) ? 'ticker' : 'theme',
             direction: fallbackTone,
             conviction: 'medium',
             relationship: fallbackRelationship,
@@ -104,11 +125,14 @@ function normalizeGraphNode(node, fallbackRelationship = 'related exposure', fal
     // Derive direction from 'direction' or 'impact' fields (Gemini returns impact per ticker).
     const rawDirection = String(node.direction || node.impact || fallbackTone || 'neutral').toLowerCase();
 
+    const ticker = String(node.ticker || node.symbol || '').trim().toUpperCase();
+    const kind = String(node.kind || node.type || '').trim().toLowerCase() || (ticker || looksLikeTicker(label) ? 'ticker' : 'theme');
+
     return {
         id: String(node.id || label.toLowerCase().replace(/[^a-z0-9]+/g, '-')),
         label,
-        ticker: String(node.ticker || node.symbol || '').trim().toUpperCase(),
-        kind: String(node.kind || node.type || (node.ticker || node.symbol ? 'ticker' : 'theme')),
+        ticker,
+        kind: ticker ? kind : (kind === 'ticker' && !looksLikeTicker(label) ? 'theme' : kind),
         direction: rawDirection,
         conviction: String(node.conviction || node.weight || 'medium').toLowerCase(),
         relationship: String(node.relationship || node.link || fallbackRelationship || '').trim(),
@@ -2480,7 +2504,7 @@ function wrapSvgText(textElement, text, maxWidth, maxLines = 2, lineHeight = 1.1
 async function fetchSignals() {
     const startTime = performance.now();
     try {
-        const res = await fetch('/api/signals?limit=50');
+        const res = await apiFetch('/api/signals?limit=50');
         if (res.ok) {
             signals = await res.json();
             displayedSignals = [...signals];
@@ -2579,7 +2603,7 @@ async function loadSignalDetails(id) {
     });
 
     try {
-        const res = await fetch('/api/signals/' + id);
+        const res = await apiFetch('/api/signals/' + id);
         if (res.ok) {
             const signal = await res.json();
             analysisNodeContainer.innerHTML = renderAnalysisNode(signal);
@@ -2624,7 +2648,13 @@ function executeHedge(btn) {
 }
 
 function setupSSE() {
-    const evtSource = new EventSource('/api/events');
+    if (API_BASE_URL) {
+        if (window.__signalPollInterval) clearInterval(window.__signalPollInterval);
+        window.__signalPollInterval = setInterval(fetchSignals, 15000);
+        return;
+    }
+
+    const evtSource = new EventSource(apiUrl('/api/events'));
     evtSource.onmessage = (e) => {
         try {
             const signal = JSON.parse(e.data);
@@ -2740,7 +2770,7 @@ async function restoreSession() {
         return;
     }
     try {
-        const res = await fetch('/api/auth/me', { headers: authHeaders() });
+        const res = await apiFetch('/api/auth/me', { headers: authHeaders() });
         if (res.ok) {
             const data = await res.json();
             currentUser = data.user;
@@ -2837,7 +2867,7 @@ async function authRegister() {
     errorEl.classList.add('hidden');
 
     try {
-        const res = await fetch('/api/auth/register', {
+        const res = await apiFetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, display_name: displayName })
@@ -2866,7 +2896,7 @@ async function authLogin() {
     errorEl.classList.add('hidden');
 
     try {
-        const res = await fetch('/api/auth/login', {
+        const res = await apiFetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -2890,7 +2920,7 @@ async function authLogin() {
 
 async function authLogout() {
     try {
-        await fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() });
+        await apiFetch('/api/auth/logout', { method: 'POST', headers: authHeaders() });
     } catch (e) {}
     sessionToken = null;
     currentUser = null;
@@ -2917,7 +2947,7 @@ function toggleNotificationPopover() {
 async function fetchNotifications() {
     if (!currentUser) return;
     try {
-        const res = await fetch('/api/notifications?limit=20', { headers: authHeaders() });
+        const res = await apiFetch('/api/notifications?limit=20', { headers: authHeaders() });
         if (!res.ok) return;
         const notifications = await res.json();
         renderNotificationList(notifications);
@@ -2961,7 +2991,7 @@ function renderNotificationList(notifications) {
 async function handleNotificationClick(signalId, notifId) {
     // Mark as read
     try {
-        await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', headers: authHeaders() });
+        await apiFetch(`/api/notifications/${notifId}/read`, { method: 'POST', headers: authHeaders() });
     } catch (e) {}
     // Load the signal
     document.getElementById('notification-popover').classList.add('hidden');
@@ -2972,7 +3002,7 @@ async function handleNotificationClick(signalId, notifId) {
 async function markAllNotificationsRead() {
     if (!currentUser) return;
     try {
-        await fetch('/api/notifications/read-all', { method: 'POST', headers: authHeaders() });
+        await apiFetch('/api/notifications/read-all', { method: 'POST', headers: authHeaders() });
         fetchNotifications();
         pollNotificationCount();
     } catch (e) {}
@@ -2981,7 +3011,7 @@ async function markAllNotificationsRead() {
 async function pollNotificationCount() {
     if (!currentUser) return;
     try {
-        const res = await fetch('/api/notifications?count=true', { headers: authHeaders() });
+        const res = await apiFetch('/api/notifications?count=true', { headers: authHeaders() });
         if (!res.ok) return;
         const data = await res.json();
         const badge = document.getElementById('notif-badge');
@@ -3036,7 +3066,7 @@ function renderWatchlistNotLoggedIn() {
 async function fetchWatchlistRules() {
     if (!currentUser) return renderWatchlistNotLoggedIn();
     try {
-        const res = await fetch('/api/watchlist', { headers: authHeaders() });
+        const res = await apiFetch('/api/watchlist', { headers: authHeaders() });
         if (!res.ok) return;
         const rules = await res.json();
         renderWatchlistItems(rules);
@@ -3113,7 +3143,7 @@ async function createWatchlistRule() {
     };
 
     try {
-        const res = await fetch('/api/watchlist', {
+        const res = await apiFetch('/api/watchlist', {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify(body)
@@ -3141,7 +3171,7 @@ async function createWatchlistRule() {
 async function deleteWatchlistRule(id) {
     if (!currentUser) return;
     try {
-        await fetch('/api/watchlist/' + id, { method: 'DELETE', headers: authHeaders() });
+        await apiFetch('/api/watchlist/' + id, { method: 'DELETE', headers: authHeaders() });
         fetchWatchlistRules();
     } catch (e) {
         console.error('Failed to delete watchlist rule:', e);

@@ -77,11 +77,23 @@ python3 python/worker.py
 
 ## 5) If you are using ngrok
 
-Expose the bot port and copy the public URL into `WEBHOOK_DOMAIN`.
+Use ngrok to expose your local Node backend on port `3000`:
 
 ```bash
 ngrok http 3000
 ```
+
+Copy the `https://...` forwarding URL that ngrok prints, then set it in `.env`:
+
+```env
+WEBHOOK_DOMAIN=https://your-ngrok-url.ngrok-free.app
+```
+
+Telegram webhooks need a public HTTPS URL, so `http://localhost:3000` will not work for `WEBHOOK_DOMAIN`.
+
+If you are only testing the dashboard locally, open the app from the Node server at `http://localhost:3000/` after starting `npm start`.
+
+If the dashboard is hosted on Vercel, set `window.API_BASE_URL` in [website/config.js](website/config.js) to your ngrok `https://...` URL so the browser sends `/api/*` requests to the backend instead of Vercel.
 
 ## What each process does
 

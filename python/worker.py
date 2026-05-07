@@ -290,6 +290,10 @@ def normalize_confidence(parsed: dict, verified_tickers, source_attribution: str
 def build_relationship_graph(signal: dict) -> dict:
     """Build a fallback graph that gives the UI multiple branch groups."""
 
+    def looks_like_ticker(value: str) -> bool:
+        text = str(value or '').strip().upper()
+        return bool(text) and len(text) <= 5 and text.isalpha()
+
     def normalize_items(items, default_kind: str, direction: str, relationship: str):
         normalized = []
         for index, item in enumerate(items or []):
@@ -312,11 +316,15 @@ def build_relationship_graph(signal: dict) -> dict:
                     or item.get('impact')
                     or direction
                 ).lower()
+                ticker = str(item.get('ticker') or item.get('symbol') or '').upper().strip()
+                kind = str(item.get('kind') or item.get('type') or default_kind)
+                if not ticker and kind == 'ticker' and not looks_like_ticker(label):
+                    kind = 'theme'
                 normalized.append({
                     'id': str(item.get('id') or f'{relationship.lower().replace(" ", "-")}-{index}'),
                     'label': label,
-                    'ticker': str(item.get('ticker') or item.get('symbol') or '').upper() or None,
-                    'kind': str(item.get('kind') or item.get('type') or default_kind),
+                    'ticker': ticker or None,
+                    'kind': kind,
                     'direction': item_direction,
                     'conviction': str(item.get('conviction') or item.get('weight') or 'medium'),
                     'relationship': str(item.get('relationship') or relationship),
@@ -327,11 +335,12 @@ def build_relationship_graph(signal: dict) -> dict:
                 label = str(item).strip()
                 if not label:
                     continue
+                ticker = label.upper() if looks_like_ticker(label) else None
                 normalized.append({
                     'id': f'{relationship.lower().replace(" ", "-")}-{index}',
                     'label': label,
-                    'ticker': label.upper() if len(label) <= 5 and label.isalpha() else None,
-                    'kind': default_kind,
+                    'ticker': ticker,
+                    'kind': default_kind if ticker else 'theme',
                     'direction': direction,
                     'conviction': 'medium',
                     'relationship': relationship,
