@@ -33,7 +33,15 @@ function formatTicker(t) {
 
 function toBullets(items) {
   if (!items.length) return '• N/A';
-  return items.map((x) => `• ${escapeHtml(String(x))}`).join('\n');
+  return items.map((x) => {
+    let label = '';
+    if (x && typeof x === 'object') {
+      label = x.label || x.title || x.item || x.text || String(x);
+    } else {
+      label = String(x ?? '');
+    }
+    return `• ${escapeHtml(label)}`;
+  }).join('\n');
 }
 
 function formatSignalMessage(obj) {
@@ -85,7 +93,15 @@ function formatSignalMessage(obj) {
 
   function numbered(items) {
     if (!items || items.length === 0) return 'N/A';
-    return items.map((x, i) => `${i + 1}. ${escapeHtml(String(x))}`).join('\n');
+    return items.map((x, i) => {
+      let label = '';
+      if (x && typeof x === 'object') {
+        label = x.label || x.title || x.item || x.text || String(x);
+      } else {
+        label = String(x ?? '');
+      }
+      return `${i + 1}. ${escapeHtml(label)}`;
+    }).join('\n');
   }
 
   const firstOrder = toBullets(parseJsonArray(obj.first_order_effects));
@@ -127,7 +143,7 @@ function formatSignalMessage(obj) {
     investmentThesis,
     '',
     '⚠️ <b>Risks</b>',
-    thesisRisks.length ? thesisRisks.map((r) => `• ${escapeHtml(r)}`).join('\n') : '• N/A',
+    toBullets(thesisRisks),
     '',
     `🌍 <b>Geography</b>: ${geography}`,
     '',

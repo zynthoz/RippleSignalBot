@@ -27,7 +27,9 @@ function escapeHtml(value) {
 }
 
 function formatSignal(row) {
-  const tickers = Array.isArray(row.tickers) ? row.tickers.join(', ') : 'N/A';
+  const tickers = Array.isArray(row.tickers) 
+    ? row.tickers.map(t => typeof t === 'object' ? (t.symbol || t.ticker || 'N/A') : String(t)).join(', ') 
+    : 'N/A';
   const createdAt = row.created_at ? new Date(row.created_at).toISOString() : 'unknown';
 
   return [
