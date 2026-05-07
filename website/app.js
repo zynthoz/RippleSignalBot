@@ -2826,13 +2826,20 @@ function updateAuthUI() {
         const initials = (currentUser.display_name || currentUser.email || '?').substring(0, 2).toUpperCase();
         document.getElementById('auth-avatar').textContent = initials;
     } else {
-        // Not logged in: show auth page, hide dashboard
-        if (window.location.pathname !== '/landing.html') {
-            window.location.replace('/landing.html');
-            return;
+        // Not logged in: if user requested /dashboard, show the dedicated login page there.
+        // Otherwise keep existing behavior and redirect to the marketing landing.
+        if (window.location.pathname === '/dashboard') {
+            // Show the dashboard's built-in login UI (no redirect back to landing)
+            authPage.classList.remove('hidden');
+            appDashboard.classList.add('hidden');
+        } else {
+            if (window.location.pathname !== '/landing.html') {
+                window.location.replace('/landing.html');
+                return;
+            }
+            authPage.classList.remove('hidden');
+            appDashboard.classList.add('hidden');
         }
-        authPage.classList.remove('hidden');
-        appDashboard.classList.add('hidden');
         
         // Hide user profile popover content just in case
         if (userView) userView.classList.add('hidden');
