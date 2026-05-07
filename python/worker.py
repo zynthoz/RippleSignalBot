@@ -49,6 +49,9 @@ def ensure_signal_columns() -> None:
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS catalyst_chain JSONB',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS relationship_graph JSONB',
         'ALTER TABLE signals ADD COLUMN IF NOT EXISTS article_published_at TIMESTAMP WITH TIME ZONE',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS vulnerability_type VARCHAR(100)',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS contagion_path JSONB',
+        'ALTER TABLE signals ADD COLUMN IF NOT EXISTS chokepoint TEXT',
         '''
         CREATE TABLE IF NOT EXISTS signal_performance (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -317,7 +320,7 @@ def build_relationship_graph(signal: dict) -> dict:
                     'direction': item_direction,
                     'conviction': str(item.get('conviction') or item.get('weight') or 'medium'),
                     'relationship': str(item.get('relationship') or relationship),
-                    'why_it_matters': str(item.get('why_it_matters') or item.get('reason') or item.get('impact') or ''),
+                    'why_it_matters': str(item.get('why_it_matters') or item.get('details') or item.get('reason') or item.get('impact') or ''),
                     'children': normalize_items(children if isinstance(children, list) else [], 'concept', item_direction, f'{label} follow-through'),
                 })
             else:
@@ -389,20 +392,26 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "You are a senior equity analyst specializing in event-driven market signals. "
             "Think through the causal chain internally, but do not output scratchpad text. "
             "Return JSON only.\n\n"
+            "HARD CONSTRAINTS:\n"
+            "1. EVERY symbol in the 'tickers' array MUST exist in the 'relationship_graph' as a node with a matching 'ticker' field.\n"
+            "2. The 'root_cause' and 'relationship_graph.root' MUST be the driving EVENT or CATALYST (e.g., 'Production Target Cut'), NEVER a company name (e.g., NOT 'Lucid Motors').\n"
+            "3. If direction is MIXED, every ticker in the array must have an explicit impact field of either positive or negative.\n\n"
 
             "{\n"
-            "  \"tickers\": [{\"symbol\": \"TICKER1\", \"conviction\": \"high|medium|low\", \"impact\": \"positive|negative\"}],\n"
+            "  \"tickers\": [{\"symbol\": \"TICKER1\", \"conviction\": \"high|medium|low\", \"impact\": \"positive|negative\", \"exposure_detail\": {\"dependency_type\": \"sole_source|major_supplier|minor_supplier|customer|competitor|substitute|none\", \"estimated_revenue_exposure\": \"~40% or unknown\", \"vulnerability_mechanism\": \"one sentence explaining WHY this company is exposed\", \"time_to_impact\": \"immediate|1-2 quarters|3+ quarters\"}}],\n"
             "  \"direction\": \"BULLISH\"|\"BEARISH\"|\"MIXED\"|\"NEUTRAL\",\n"
             "  \"confidence\": 0-100,\n"
             "  \"time_horizon\": \"intraday\"|\"short-term\"|\"medium-term\",\n"
             "  \"geography\": \"country/region most relevant to the signal or 'unspecified'\",\n"
-            "  \"root_cause\": \"actual event/decision/data point driving the news\",\n"
-            "  \"first_order_effects\": [\"direct market/sector effects\"],\n"
-            "  \"second_order_effects\": [\"downstream indirect effects\"],\n"
+            "  \"root_cause\": \"concise factual event driving the news (e.g. 'Port Strike' not 'Maersk')\",\n"
+            "  \"first_order_effects\": [{\"label\": \"3-5 word concise title\", \"details\": \"Full technical explanation of the direct effect\"}],\n"
+            "  \"second_order_effects\": [{\"label\": \"3-5 word concise title\", \"details\": \"Full technical explanation of the downstream effect\"}],\n"
             "  \"positively_affected\": [\"ticker or asset names that benefit\"],\n"
             "  \"negatively_affected\": [\"ticker or asset names that are hurt\"],\n"
             "  \"source_attribution\": \"best guess of original source: filing/press release/central bank/etc\",\n"
             "  \"confidence_basis\": [\"factors used to assign confidence\"],\n"
+            "  \"vulnerability_type\": \"supply_disruption|demand_shift|regulatory_shock|infrastructure_failure|geopolitical_contagion|none\",\n"
+            "  \"chokepoint\": \"the specific facility, port, route, resource, or regulation disrupted — or empty string if not applicable\",\n"
             "  \"relationship_graph\": {\n"
             "    \"root\": \"short causal summary of the event\",\n"
             "    \"branches\": [\n"
@@ -413,13 +422,14 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "          {\n"
             "            \"label\": \"Ticker or company name\",\n"
             "            \"ticker\": \"TICKER\",\n"
-            "            \"kind\": \"ticker|sector|supplier|customer|risk|theme\",\n"
+            "            \"kind\": \"ticker|sector|supplier|customer|chokepoint|substitute|risk|theme\",\n"
             "            \"direction\": \"positive|negative|neutral\",\n"
             "            \"conviction\": \"high|medium|low\",\n"
             "            \"relationship\": \"why this node is connected to the root cause\",\n"
             "            \"why_it_matters\": \"1 short sentence with the market link\",\n"
+            "            \"exposure_pct\": \"estimated revenue/cost exposure percentage like ~40% or empty string\",\n"
             "            \"children\": [\n"
-            "              {\"label\": \"Optional downstream or peer node\", \"ticker\": \"\", \"kind\": \"theme\", \"direction\": \"neutral\", \"conviction\": \"low\", \"relationship\": \"secondary read-through\", \"why_it_matters\": \"\", \"children\": []}\n"
+            "              {\"label\": \"Optional downstream or peer node\", \"ticker\": \"\", \"kind\": \"theme\", \"direction\": \"neutral\", \"conviction\": \"low\", \"relationship\": \"secondary read-through\", \"why_it_matters\": \"\", \"exposure_pct\": \"\", \"children\": []}\n"
             "            ]\n"
             "          }\n"
             "        ]\n"
@@ -433,7 +443,7 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "    \"Step 4: The second-order market repricing effect\"\n"
             "  ],\n"
             "  \"investment_thesis\": \"3-5 sentences synthesizing the market mispricing, why it matters now, and why these tickers are the best expression of the trade.\",\n"
-            "  \"thesis_risks\": [\"Specific factors that would invalidate this signal\", \"Reasons this might already be priced in\"],\n"
+            "  \"thesis_risks\": [\"Specific factors that would invalidate this signal. MUST be a 7-word summary. Do not truncate mid-word.\", \"Reasons this might already be priced in\"],\n"
             "  \"market_consensus_divergence\": \"Whether this confirms, contradicts, or introduces a market narrative — with a concrete reason why.\",\n"
             "  \"reasoning\": \"2-4 sentence causal explanation from event to market impact\"\n"
             "}\n\n"
@@ -447,23 +457,27 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "- Make each node/panel sentence specific to the ticker or market segment, not a reusable template.\n"
             "- Keep it concise, but do not flatten the causal chain or remove important details.\n\n"
 
-            "## TICKER IDENTIFICATION\n"
-            "Use the scratchpad to follow this chain:\n"
-            "  1. What is the root cause of this event?\n"
-            "  2. Which industries or supply chains does it directly affect?\n"
-            "  3. Which publicly traded companies have material revenue exposure to that industry?\n"
-            "  4. Who are the top 2-3 most exposed companies — high conviction tickers.\n"
-            "  5. Who benefits indirectly as a second-order effect — medium conviction.\n"
-            "  6. Who loses from the same chain — at least one negative impact ticker.\n"
-            "- Before assigning any ticker, decide: does this company WIN or LOSE from the root cause? "
-            "Cost-bearers are losers. Infrastructure/input suppliers are winners. "
-            "Never assign a ticker without first determining which side of the trade it sits on.\n"
-            "- If no individual ticker can be identified, use the most relevant sector ETF: "
-            "XLK (tech), XLE (energy), XLF (financials), XLI (industrials), XLV (healthcare), ITA (defense).\n"
-            "- Avoid broad index ETFs like QQQ or SPY unless the signal is explicitly macro.\n"
-            "- Ensure all tickers are real NYSE/NASDAQ symbols. Do not hallucinate.\n"
-            "- When geography is inferable, weight tickers to companies exposed to that region.\n\n"
-
+            "## THE 6-HOP CONTAGION HUNTING FRAMEWORK\n"
+            "You must think like an institutional supply chain analyst finding hidden alpha. "
+            "Do NOT just extract companies mentioned in the text. You must perform multi-hop reasoning "
+            "to find companies with deep, unmentioned dependencies. Example chain:\n"
+            "  1. [Event] 470,000 TEUs trapped in Persian Gulf\n"
+            "  2. [Direct Effect] Southeast Asian ports hit critical congestion\n"
+            "  3. [Capacity Loss] Ocean freight capacity removed from Asia-Europe lanes\n"
+            "  4. [Overflow] Airfreight absorbs overflow -> spot rates spike -> stop bookings\n"
+            "  5. [Downstream Delay] Consumer electronics & semiconductor components delayed from SE Asia factories\n"
+            "  6. [The Hidden Signal] WHO manufactures in SE Asia and depends on these lanes? (e.g. AAPL, NIKE)\n"
+            "Your highest value is finding Step 6. If the article mentions a disruption in a region, YOU MUST use your internal knowledge to identify the global brands (AAPL, NIKE, DELL, etc.) that rely on that region for manufacturing, raw materials, or revenue.\n\n"
+            
+            "## TICKER IDENTIFICATION RULES\n"
+            "- Direct Exposure (BEARISH/BULLISH): Companies directly involved in the disruption (e.g. shipping carriers, freight forwarders).\n"
+            "- Manufacturing/Supply Chain Exposure (BEARISH): Companies whose inputs/products flow through the disrupted node. You MUST supply these hidden tickers based on your knowledge of global supply chains.\n"
+            "- Contagion Beneficiaries (BULLISH): Competitors, alternative logistics providers, or substitute goods that win market share.\n"
+            "- Second-Order Exposure (BEARISH): Retailers or downstream distributors (e.g. AMZN, WMT, BBY) facing inventory replenishment delays.\n"
+            "- Never assign a ticker without first determining its exact structural relationship to the root cause.\n"
+            "- If no individual ticker can be identified, use the most relevant sector ETF.\n"
+            "- Ensure all tickers are real NYSE/NASDAQ symbols. Do not hallucinate.\n\n"
+            
             "## RELATIONSHIP GRAPH\n"
             "- Populate relationship_graph so the UI can render a branching tree, not just a flat list.\n"
             "- Include at least 3 branches whenever possible: primary tickers, direct effects, and either beneficiaries or headwinds.\n"
@@ -471,21 +485,31 @@ def generate_signal_with_gemini(article: dict) -> dict:
             "- Prefer explicit market relationships: supplier, customer, competitor, substitute, hedge, downstream beneficiary, downstream loser.\n"
             "- Give each node a short why_it_matters sentence so the UI can show connection strength.\n"
             "- Use nested children for second-order read-throughs or peers that emerge from the first branch.\n\n"
-
+            
             "## DIRECTION & IMPACT\n"
-            "- Do NOT rely on directional words in the headline. "
-            "Infer direction from causal fundamentals only.\n"
-            "- Never let short-term stock price reaction override fundamental cause-and-effect.\n"
+            "- Do NOT rely on directional words in the headline. Infer direction from causal fundamentals only.\n"
+            "- Second-order supply chain exposure alone is insufficient for BEARISH. You must identify: (1) what % of the company's revenue or COGS is exposed, (2) whether they have stated alternative sourcing, and (3) whether the disruption duration exceeds their inventory buffer. If all three cannot be answered from the article, use MIXED with low conviction.\n"
             "- If the event has clear winners AND losers, set direction to MIXED.\n"
+            "- When direction is MIXED, every ticker in the tickers array must have an explicit impact field of either positive or negative. No ticker should be ambiguous.\n"
             "- Use NEUTRAL only when no sector is plausibly affected. If any sector is affected use BULLISH, BEARISH, or MIXED.\n"
-            "- Every positive impact ticker must appear in positively_affected.\n"
-            "- Every negative impact ticker must appear in negatively_affected.\n\n"
-
+            "- Every positive impact ticker must appear in positively_affected. Every negative impact ticker must appear in negatively_affected.\n\n"
+            
             "## BUSINESS MODEL NUANCE & CAUSALITY\n"
             "- Pay extremely close attention to the difference between PRODUCERS and SERVICES/EQUIPMENT providers.\n"
-            "- Example: In a geopolitical conflict or supply disruption (e.g. Gulf conflict), oil producers (XOM, CVX, OXY) are BULLISH because reduced supply = higher commodity prices. However, oilfield service companies (SLB, HAL) are BEARISH because conflict freezes new capital expenditure, stops active drilling, and spikes insurance/logistics costs. They get paid to drill, not to sell oil.\n"
-            "- Example 2: Escalation in conflict often leads to defense procurement, making defense contractors (LMT, RTX) BULLISH.\n"
-            "- Always separate the commodity/product price effect from the operational/capex effect. Ensure your tickers reflect the exact business model's exposure.\n\n"
+            "- Example: In a geopolitical conflict, oil producers are BULLISH, but oilfield service companies are BEARISH because conflict freezes capital expenditure.\n"
+            "- Always separate the commodity/product price effect from the operational/capex effect.\n\n"
+            
+            "## SUPPLY CHAIN CONTAGION MAPPING\n"
+            "- For every event involving geography, infrastructure, raw materials, logistics, or regulation:\n"
+            "  1. Identify the CHOKEPOINT: What specific facility, port, route, policy, or resource is disrupted? Put it in the chokepoint field.\n"
+            "  2. Map UPSTREAM DEPENDENCIES: Which companies source critical inputs from the affected area? Estimate revenue exposure percentage when inferable (e.g. '~40% of raw materials').\n"
+            "  3. Map DOWNSTREAM CONTAGION: Which global brands (customers) face delivery delays or cost pass-through? (The Step 6 Hidden Signals).\n"
+            "  4. Identify SUBSTITUTION BENEFICIARIES: Who gains market share or pricing power from the disruption?\n"
+            "- Set vulnerability_type to the best fit: supply_disruption, demand_shift, regulatory_shock, infrastructure_failure, geopolitical_contagion.\n"
+            "- For each affected ticker, populate the exposure_detail object with dependency_type, estimated_revenue_exposure, vulnerability_mechanism, and time_to_impact.\n"
+            "- In the relationship_graph, use kind='chokepoint' for the disrupted facility/route, kind='supplier' for upstream dependencies, kind='customer' for downstream exposure, and kind='substitute' for beneficiaries.\n"
+            "- Include exposure_pct on each relationship_graph node when you can estimate it.\n"
+            "- When a company is flagged as negatively exposed, ALWAYS check: does this company have competitors who could benefit? Add them as substitution beneficiaries.\n\n"
 
             "## CONFIDENCE CALIBRATION\n"
             "- 40-55: Speculation / unconfirmed rumor / RFP / expressed interest\n"
@@ -575,7 +599,20 @@ def generate_signal_with_gemini(article: dict) -> dict:
             if conv not in {'high', 'medium', 'low'}:
                 conv = 'medium'
             if sym:
-                normalized_tickers.append({'symbol': sym, 'conviction': conv})
+                entry = {'symbol': sym, 'conviction': conv}
+                # Preserve impact field
+                impact = str(item.get('impact') or item.get('direction') or '').lower()
+                if impact in {'positive', 'negative'}:
+                    entry['impact'] = impact
+                # Preserve exposure_detail for contagion tracking
+                exposure = item.get('exposure_detail')
+                if isinstance(exposure, dict):
+                    exposure.setdefault('dependency_type', 'none')
+                    exposure.setdefault('estimated_revenue_exposure', 'unknown')
+                    exposure.setdefault('vulnerability_mechanism', '')
+                    exposure.setdefault('time_to_impact', 'unknown')
+                    entry['exposure_detail'] = exposure
+                normalized_tickers.append(entry)
     else:
         for t in raw_tickers:
             sym = str(t).upper()
@@ -604,6 +641,11 @@ def generate_signal_with_gemini(article: dict) -> dict:
     parsed['geography'] = str(parsed.get('geography', '')).strip() or 'unspecified'
     parsed['source_attribution'] = str(parsed.get('source_attribution', '')).strip()
     parsed['confidence_basis'] = [str(x) for x in parsed.get('confidence_basis', []) if str(x).strip()]
+    # Contagion fields
+    parsed['vulnerability_type'] = str(parsed.get('vulnerability_type', 'none')).strip().lower()
+    if parsed['vulnerability_type'] not in {'supply_disruption', 'demand_shift', 'regulatory_shock', 'infrastructure_failure', 'geopolitical_contagion', 'none'}:
+        parsed['vulnerability_type'] = 'none'
+    parsed['chokepoint'] = str(parsed.get('chokepoint', '')).strip()
     relationship_graph = parsed.get('relationship_graph', {})
     if isinstance(relationship_graph, str):
         try:
@@ -615,6 +657,36 @@ def generate_signal_with_gemini(article: dict) -> dict:
     if not relationship_graph:
         relationship_graph = build_relationship_graph(parsed)
     parsed['relationship_graph'] = relationship_graph
+    # Extract contagion_path from relationship graph for structured storage
+    contagion_path = []
+    supply_chain_kinds = {'supplier', 'customer', 'substitute', 'chokepoint'}
+    for branch in (relationship_graph.get('branches') or []):
+        for node in (branch.get('nodes') or []):
+            if isinstance(node, dict):
+                node_kind = str(node.get('kind', '')).lower()
+                node_rel = str(node.get('relationship', '')).lower()
+                effective_kind = node_kind if node_kind in supply_chain_kinds else (node_rel if node_rel in supply_chain_kinds else None)
+                if effective_kind:
+                    contagion_path.append({
+                        'ticker': str(node.get('ticker') or node.get('label') or '').strip(),
+                        'dependency_type': effective_kind,
+                        'exposure_pct': str(node.get('exposure_pct', '')).strip(),
+                    'mechanism': str(node.get('why_it_matters') or node.get('relationship') or '').strip(),
+                })
+                # Also check children for downstream contagion
+                for child in (node.get('children') or []):
+                    if isinstance(child, dict):
+                        child_kind = str(child.get('kind', '')).lower()
+                        child_rel = str(child.get('relationship', '')).lower()
+                        child_eff_kind = child_kind if child_kind in supply_chain_kinds else (child_rel if child_rel in supply_chain_kinds else None)
+                        if child_eff_kind:
+                            contagion_path.append({
+                                'ticker': str(child.get('ticker') or child.get('label') or '').strip(),
+                                'dependency_type': child_eff_kind,
+                                'exposure_pct': str(child.get('exposure_pct', '')).strip(),
+                            'mechanism': str(child.get('why_it_matters') or child.get('relationship') or '').strip(),
+                        })
+    parsed['contagion_path'] = contagion_path
     return parsed
 
 
@@ -670,14 +742,16 @@ def save_signal(signal: dict) -> str:
                 source_attribution, geography, market_consensus_divergence,
                 investment_thesis, first_order_effects, second_order_effects,
                 positively_affected, negatively_affected, thesis_risks, catalyst_chain,
-                relationship_graph, article_published_at
+                relationship_graph, article_published_at,
+                vulnerability_type, contagion_path, chokepoint
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s, %s,
-                %s, %s
+                %s, %s,
+                %s, %s, %s
             ) RETURNING id
         """
         values = (
@@ -689,7 +763,7 @@ def save_signal(signal: dict) -> str:
             signal.get('reasoning', ''),
             signal.get('source_url', ''),
             datetime.now(timezone.utc),
-            # --- 14 new rich-signal columns ---
+            # --- 14 rich-signal columns ---
             signal.get('time_horizon') or None,
             signal.get('root_cause') or None,
             signal.get('source_headline') or None,
@@ -706,6 +780,10 @@ def save_signal(signal: dict) -> str:
             Json(signal.get('catalyst_chain') or []),
             Json(signal.get('relationship_graph') or {}),
             parse_iso_datetime(signal.get('article_published_at')) if signal.get('article_published_at') else None,
+            # --- 3 contagion columns ---
+            signal.get('vulnerability_type') or None,
+            Json(signal.get('contagion_path') or []),
+            signal.get('chokepoint') or None,
         )
         cur.execute(query, values)
         signal_id = cur.fetchone()[0]
@@ -750,6 +828,9 @@ def publish_signal(r: redis.Redis, stream: str, signal: dict, signal_id: str):
             'created_at': datetime.now(timezone.utc).isoformat(),
             'article_published_at': signal.get('article_published_at', ''),
             'performance': json.dumps(signal.get('performance', [])),
+            'vulnerability_type': signal.get('vulnerability_type', ''),
+            'contagion_path': json.dumps(signal.get('contagion_path', [])),
+            'chokepoint': signal.get('chokepoint', ''),
         }
         r.xadd(stream, payload)
     except Exception as e:

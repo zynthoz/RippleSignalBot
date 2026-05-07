@@ -113,6 +113,7 @@ function normalizeGraphNode(node, fallbackRelationship = 'related exposure', fal
         conviction: String(node.conviction || node.weight || 'medium').toLowerCase(),
         relationship: String(node.relationship || node.link || fallbackRelationship || '').trim(),
         why_it_matters: String(node.why_it_matters || node.reason || node.impact || '').trim(),
+        exposure_pct: String(node.exposure_pct || '').trim(),
         children: Array.isArray(node.children)
             ? node.children.map((child) => normalizeGraphNode(child, `${label} follow-through`, rawDirection)).filter(Boolean)
             : [],
@@ -469,6 +470,101 @@ function formatReasoning(text) {
     return paragraphs.map(p => `<p class="text-[13px] leading-relaxed text-on-surface-variant mb-2 last:mb-0">${escapeHtml(p)}</p>`).join('');
 }
 
+function renderContagionSection(signal) {
+    // Parse contagion data
+    let contagionPath = [];
+    if (signal.contagion_path) {
+        if (typeof signal.contagion_path === 'string') {
+            try { contagionPath = JSON.parse(signal.contagion_path); } catch(e){}
+        } else if (Array.isArray(signal.contagion_path)) {
+            contagionPath = signal.contagion_path;
+        }
+    }
+
+    const chokepoint = String(signal.chokepoint || '').trim();
+    const vulnType = String(signal.vulnerability_type || '').trim().toLowerCase();
+
+    // Don't render if no contagion data
+    if (!contagionPath.length && !chokepoint && (!vulnType || vulnType === 'none')) return '';
+
+    const vulnLabels = {
+        supply_disruption: 'SUPPLY DISRUPTION',
+        demand_shift: 'DEMAND SHIFT',
+        regulatory_shock: 'REGULATORY SHOCK',
+        infrastructure_failure: 'INFRASTRUCTURE FAILURE',
+        geopolitical_contagion: 'GEOPOLITICAL CONTAGION',
+    };
+    const vulnColors = {
+        supply_disruption: '#ff6b35',
+        demand_shift: '#fbbf24',
+        regulatory_shock: '#a855f7',
+        infrastructure_failure: '#ff4d4d',
+        geopolitical_contagion: '#e879f9',
+    };
+
+    const vulnLabel = vulnLabels[vulnType] || '';
+    const vulnColor = vulnColors[vulnType] || '#8d99ae';
+
+    const depTypeGlyphs = {
+        chokepoint: '⬡',
+        supplier: '▼',
+        customer: '▲',
+        substitute: '⟳',
+    };
+    const depTypeColors = {
+        chokepoint: '#ff6b35',
+        supplier: '#e879f9',
+        customer: '#fbbf24',
+        substitute: '#34d399',
+    };
+
+    let pathHtml = '';
+    if (chokepoint) {
+        pathHtml += `<div class="flex items-start gap-2 mb-2">
+            <span style="color:#ff6b35;" class="text-[14px] mt-px">⬡</span>
+            <div>
+                <div class="text-body-strong text-[12px] font-code font-semibold">${escapeHtml(chokepoint)}</div>
+                <div class="text-[10px] text-muted font-code tracking-wider uppercase">CHOKEPOINT</div>
+            </div>
+        </div>`;
+    }
+
+    contagionPath.forEach((entry, idx) => {
+        if (!entry || typeof entry !== 'object') return;
+        const ticker = String(entry.ticker || '').trim();
+        const depType = String(entry.dependency_type || '').toLowerCase();
+        const exposure = String(entry.exposure_pct || '').trim();
+        const mechanism = String(entry.mechanism || '').trim();
+        const glyph = depTypeGlyphs[depType] || '●';
+        const color = depTypeColors[depType] || '#8d99ae';
+        const depLabel = depType.replace(/_/g, ' ').toUpperCase();
+
+        pathHtml += `<div class="flex items-start gap-2 ${idx > 0 ? 'mt-1' : ''} pl-4 border-l border-hairline-strong ml-[6px]">
+            <span style="color:${color};" class="text-[12px] mt-px -ml-[10px]">${glyph}</span>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-body-strong text-[12px] font-code font-semibold">${escapeHtml(ticker || '—')}</span>
+                    ${exposure ? `<span class="bg-surface-card-elevated border border-hairline-strong px-1.5 py-0.5 rounded text-[9px] font-code font-bold" style="color:${color}">${escapeHtml(exposure)}</span>` : ''}
+                    <span class="text-[9px] text-muted font-code tracking-wider">${escapeHtml(depLabel)}</span>
+                </div>
+                ${mechanism ? `<div class="text-[11px] text-body font-code leading-snug mt-0.5 opacity-80">${escapeHtml(mechanism)}</div>` : ''}
+            </div>
+        </div>`;
+    });
+
+    return `
+        <div class="flex flex-col mb-6">
+            <div class="flex items-center gap-2 mb-3">
+                <div class="text-[10px] text-muted font-code tracking-widest uppercase">CONTAGION PATH</div>
+                ${vulnLabel ? `<span class="text-[9px] font-code font-bold tracking-wider px-1.5 py-0.5 rounded-sm border" style="color:${vulnColor}; border-color:${vulnColor}40; background:${vulnColor}10;">${vulnLabel}</span>` : ''}
+            </div>
+            <div class="flex flex-col border border-hairline-strong bg-transparent p-4 gap-1">
+                ${pathHtml || '<div class="text-[11px] text-muted font-code">No supply chain dependencies detected for this signal.</div>'}
+            </div>
+        </div>
+    `;
+}
+
 function renderPerformanceSection(signal) {
     let perfData = [];
     if (signal.performance) {
@@ -622,6 +718,8 @@ function renderAnalysisNode(signal) {
                 </div>
             </div>
 
+            ${renderContagionSection(signal)}
+
             ${renderPerformanceSection(signal)}
 
             <!-- AI Reasoning -->
@@ -766,12 +864,17 @@ function shortLabel(text, maxWords = 4) {
     let cleaned = text.replace(/^(step\s*\d+\s*[:.]\s*)/i, '').trim();
     const words = cleaned.split(/\s+/).filter(Boolean);
     if (words.length <= maxWords) return cleaned;
-    return words.slice(0, maxWords).join(' ');
+    return words.slice(0, maxWords).join(' ') + '...';
 }
 
 function compactImpactLabel(text, maxWords = 7) {
     if (!text) return '';
-    let cleaned = String(text)
+    // Extract label from object if provided
+    const val = (typeof text === 'object' && text !== null) 
+        ? (text.label || text.title || text.text || "") 
+        : text;
+        
+    let cleaned = String(val)
         .replace(/^(what\s+breaks|what\s+gets\s+created|mechanism\s*[:.-]\s*)/i, '')
         .replace(/\b(the|a|an|this|that)\b/gi, ' ')
         .replace(/\s+/g, ' ')
@@ -779,7 +882,7 @@ function compactImpactLabel(text, maxWords = 7) {
 
     const words = cleaned.split(/\s+/).filter(Boolean);
     if (words.length <= maxWords) return cleaned;
-    return words.slice(0, maxWords).join(' ');
+    return words.slice(0, maxWords).join(' ') + '...';
 }
 
 function compactRiskLabel(text, maxWords = 4) {
@@ -874,12 +977,16 @@ function renderTopologyLegend() {
             <div class="bg-surface-card-elevated/80 backdrop-blur border border-hairline px-3 py-1.5 rounded-full text-muted text-xs flex items-center gap-2 cursor-help shadow-md">
                 <span class="material-symbols-outlined text-[14px]">info</span> Legend
             </div>
-            <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[160px]">
+            <div class="absolute top-full left-0 mt-2 bg-surface-card border border-hairline p-4 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col gap-3 min-w-[180px]">
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#0ea5e9;" class="mr-2 text-[14px]">●</span> Root Cause</span>
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#fde047;" class="mr-2 text-[14px]">◆</span> Direct Effect</span>
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#a855f7;" class="mr-2 text-[14px]">◆</span> Ripple Effect</span>
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#00ff9d;" class="mr-2 text-[14px]">●</span> Beneficiary</span>
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff4d4d;" class="mr-2 text-[14px]">●</span> Headwind</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#ff6b35;" class="mr-2 text-[14px]">⬡</span> Chokepoint</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#e879f9;" class="mr-2 text-[14px]">▼</span> Supplier</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#fbbf24;" class="mr-2 text-[14px]">▲</span> Customer</span>
+                <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#34d399;" class="mr-2 text-[14px]">⟳</span> Substitute</span>
                 <span class="flex items-center text-body-strong text-xs font-code tracking-wider uppercase"><span style="color:#f97316;" class="mr-2 text-[16px]">◇</span> Risk</span>
             </div>
         </div>`;
@@ -955,6 +1062,23 @@ function initD3Graph(signal, topology) {
     const negativeSet = new Set(normalizeTextList(signal.negatively_affected).map(s => s.toUpperCase()));
     const allTickers = normalizeTickerList(signal.tickers);
     const rawTickerList = parseMaybeJson(signal.tickers, []);
+    
+    // Inject any tickers found in the relationship graph that the backend might have missed in the primary list
+    (topology.branches || []).forEach(branch => {
+        (branch.nodes || []).forEach(gnode => {
+            if (gnode.ticker && !allTickers.includes(gnode.ticker.toUpperCase())) {
+                allTickers.push(gnode.ticker.toUpperCase());
+                rawTickerList.push(gnode);
+            }
+            (gnode.children || []).forEach(child => {
+                if (child.ticker && !allTickers.includes(child.ticker.toUpperCase())) {
+                    allTickers.push(child.ticker.toUpperCase());
+                    rawTickerList.push(child);
+                }
+            });
+        });
+    });
+
     const tickerProfiles = normalizeTickerProfiles(signal.ticker_profiles);
 
     function tickerMeta(sym) {
@@ -988,7 +1112,7 @@ function initD3Graph(signal, topology) {
         const id = nid('fo');
         foIds.push(id);
         nodes.push({
-            id, label: shortLabel(txt), group: 'first_order', layer: 1,
+            id, label: txt, group: 'first_order', layer: 1,
             radius: 14, color: '#fde047', shape: 'diamond',
             detail: txt, directionInfo: 'DIRECT EFFECT', conviction: 'high'
         });
@@ -1002,7 +1126,7 @@ function initD3Graph(signal, topology) {
         const id = nid('so');
         soIds.push(id);
         nodes.push({
-            id, label: shortLabel(txt), group: 'second_order', layer: 2,
+            id, label: txt, group: 'second_order', layer: 2,
             radius: 10, color: '#a855f7', shape: 'diamond',
             detail: txt, directionInfo: 'RIPPLE EFFECT', conviction: 'medium'
         });
@@ -1010,8 +1134,95 @@ function initD3Graph(signal, topology) {
         links.push({ source: parentId, target: id, value: 5, color: '#a855f7', reason: 'Downstream ripple', dashed: false });
     });
 
+    // === Layer 2.5: Supply Chain Contagion Nodes ===
+    // Extract chokepoint/supplier/customer/substitute nodes from topology branches
+    const contagionKinds = new Set(['chokepoint', 'supplier', 'customer', 'substitute']);
+    const contagionIds = [];
+    const contagionColors = { chokepoint: '#ff6b35', supplier: '#e879f9', customer: '#fbbf24', substitute: '#34d399' };
+    const contagionShapes = { chokepoint: 'hexagon', supplier: 'triangle-down', customer: 'triangle-up', substitute: 'diamond' };
+    const contagionLabels = { chokepoint: 'CHOKEPOINT', supplier: 'SUPPLIER DEPENDENCY', customer: 'DOWNSTREAM CUSTOMER', substitute: 'SUBSTITUTE BENEFICIARY' };
+    const addedContagionLabels = new Set();
+    const tickerParentMap = {};
+
+    (topology.branches || []).forEach((branch) => {
+        (branch.nodes || []).forEach((gnode) => {
+            const kind = String(gnode.kind || '').toLowerCase();
+            const rel = String(gnode.relationship || '').toLowerCase();
+            const effectiveKind = contagionKinds.has(kind) ? kind : (contagionKinds.has(rel) ? rel : null);
+            if (!effectiveKind) return;
+            
+            // For the intermediate contagion node, use the dependency type as label
+            const contagionLabel = contagionLabels[effectiveKind] || effectiveKind.toUpperCase();
+            console.log(`[Topology] Created Contagion Node for ${effectiveKind}:`, contagionLabel, 'from ticker:', gnode.ticker);
+
+            const id = nid('cn');
+            contagionIds.push(id);
+            const col = contagionColors[effectiveKind] || '#8d99ae';
+            const exposurePct = String(gnode.exposure_pct || '').trim();
+            const detailParts = [gnode.why_it_matters || gnode.relationship || ''];
+            if (exposurePct) detailParts.push(`Exposure: ${exposurePct}`);
+
+            nodes.push({
+                id, label: contagionLabel, ticker: '', group: 'contagion', layer: 2,
+                radius: effectiveKind === 'chokepoint' ? 18 : 14, color: col,
+                shape: contagionShapes[effectiveKind] || 'diamond',
+                detail: detailParts.join(' — '), directionInfo: 'SUPPLY CHAIN DEPENDENCY',
+                conviction: String(gnode.conviction || 'medium'), contagionKind: effectiveKind,
+                exposurePct: exposurePct
+            });
+
+            // Connect chokepoints to root, others to root by default unless a chokepoint exists
+            let parentId;
+            if (effectiveKind === 'chokepoint') {
+                parentId = rootId;
+            } else {
+                const chokepointNode = contagionIds.length > 1 ? contagionIds[0] : null;
+                const chokepointIsActual = chokepointNode && nodes.find(n => n.id === chokepointNode && n.contagionKind === 'chokepoint');
+                parentId = chokepointIsActual ? chokepointNode : rootId;
+            }
+            links.push({ source: parentId, target: id, value: 5, color: col, reason: gnode.relationship || effectiveKind + ' link', dashed: false, contagion: true });
+
+            // Ensure the ticker node knows to connect to this contagion node instead of default effects
+            if (gnode.ticker) {
+                // We map this ticker so it connects directly to our new contagion node
+                contagionIds.push(id); // Already pushed above, but this makes sure it's in the pool for Layer 3
+                tickerParentMap[gnode.ticker.toUpperCase()] = id;
+            }
+
+            // Also process children of this contagion node
+            (gnode.children || []).forEach((child) => {
+                const childKind = String(child.kind || '').toLowerCase();
+                const childRel = String(child.relationship || '').toLowerCase();
+                const childEffectiveKind = contagionKinds.has(childKind) ? childKind : (contagionKinds.has(childRel) ? childRel : null);
+                if (!childEffectiveKind) return;
+                
+                const childContagionLabel = contagionLabels[childEffectiveKind] || childEffectiveKind.toUpperCase();
+
+                const childId = nid('cn');
+                contagionIds.push(childId);
+                const childCol = contagionColors[childEffectiveKind] || '#8d99ae';
+                const childExposure = String(child.exposure_pct || '').trim();
+                const childDetail = [child.why_it_matters || child.relationship || ''];
+                if (childExposure) childDetail.push(`Exposure: ${childExposure}`);
+
+                nodes.push({
+                    id: childId, label: childContagionLabel, ticker: '', group: 'contagion', layer: 2,
+                    radius: childEffectiveKind === 'chokepoint' ? 18 : 12, color: childCol,
+                    shape: contagionShapes[childEffectiveKind] || 'diamond',
+                    detail: childDetail.join(' — '), directionInfo: 'SUPPLY CHAIN DEPENDENCY',
+                    conviction: String(child.conviction || 'low'), contagionKind: childEffectiveKind,
+                    exposurePct: childExposure
+                });
+                links.push({ source: id, target: childId, value: 4, color: childCol, reason: child.relationship || 'downstream', dashed: false, contagion: true });
+                if (child.ticker) {
+                    tickerParentMap[child.ticker.toUpperCase()] = childId;
+                }
+            });
+        });
+    });
+
     // === Layer 3: Ticker nodes ===
-    const deepestEffects = soIds.length > 0 ? soIds : foIds.length > 0 ? foIds : [rootId];
+    const deepestEffects = contagionIds.length > 0 ? contagionIds : soIds.length > 0 ? soIds : foIds.length > 0 ? foIds : [rootId];
 
     allTickers.forEach((sym, idx) => {
         const impact = tickerImpact(sym);
@@ -1031,15 +1242,20 @@ function initD3Graph(signal, topology) {
 
         // Connect beneficiaries to second-order effects (they profit from the ripple)
         // Connect headwinds to first-order effects (they are directly hit)
-        let parentPool;
-        if (impact === 'positive') {
-            parentPool = soIds.length > 0 ? soIds : foIds.length > 0 ? foIds : [rootId];
-        } else if (impact === 'negative') {
-            parentPool = foIds.length > 0 ? foIds : soIds.length > 0 ? soIds : [rootId];
+        let parent;
+        if (tickerParentMap[sym]) {
+            parent = tickerParentMap[sym];
         } else {
-            parentPool = deepestEffects;
+            let parentPool;
+            if (impact === 'positive') {
+                parentPool = soIds.length > 0 ? soIds : foIds.length > 0 ? foIds : [rootId];
+            } else if (impact === 'negative') {
+                parentPool = foIds.length > 0 ? foIds : soIds.length > 0 ? soIds : [rootId];
+            } else {
+                parentPool = deepestEffects;
+            }
+            parent = parentPool[idx % parentPool.length];
         }
-        const parent = parentPool[idx % parentPool.length];
         links.push({ source: parent, target: id, value: 4, color: col, reason: impact + ' exposure', dashed: false });
     });
 
@@ -1048,12 +1264,36 @@ function initD3Graph(signal, topology) {
     risks.slice(0, 3).forEach((txt) => {
         const id = nid('risk');
         nodes.push({
-            id, label: compactRiskLabel(txt), group: 'risk', layer: 'risk',
+            id, label: txt, group: 'risk', layer: 'risk',
             radius: 6, color: '#f97316', shape: 'diamond',
             detail: txt, directionInfo: 'INVALIDATOR', conviction: 'low'
         });
         links.push({ source: rootId, target: id, value: 2, color: '#f97316', reason: 'Thesis risk', dashed: true });
     });
+
+    // === Prune dangling intermediary nodes ===
+    // Ensure that 'first_order', 'second_order', and 'contagion' nodes 
+    // are ONLY visible if they ultimately connect to a ticker or an explicit leaf node.
+    let pruned = true;
+    while (pruned) {
+        pruned = false;
+        const sourceIds = new Set(links.map(l => l.source));
+        for (let i = nodes.length - 1; i >= 0; i--) {
+            const n = nodes[i];
+            if ((n.group === 'first_order' || n.group === 'second_order' || n.group === 'contagion') && !sourceIds.has(n.id)) {
+                nodes.splice(i, 1);
+                pruned = true;
+            }
+        }
+        if (pruned) {
+            const validNodeIds = new Set(nodes.map(n => n.id));
+            for (let i = links.length - 1; i >= 0; i--) {
+                if (!validNodeIds.has(links[i].source) || !validNodeIds.has(links[i].target)) {
+                    links.splice(i, 1);
+                }
+            }
+        }
+    }
 
     // Initialize all nodes near the center with random jitter to prevent them from flying in from (0,0)
     // Jitter ensures dx/dy are never precisely 0 in the custom force layer.
@@ -1098,7 +1338,7 @@ function initD3Graph(signal, topology) {
     glow.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).enter().append("feMergeNode").attr("in", d => d);
 
     // Arrow markers
-    ['#0ea5e9', '#00ff9d', '#ff4d4d', '#8d99ae', '#fde047', '#a855f7', '#f97316'].forEach(color => {
+    ['#0ea5e9', '#00ff9d', '#ff4d4d', '#8d99ae', '#fde047', '#a855f7', '#f97316', '#ff6b35', '#e879f9', '#fbbf24', '#34d399'].forEach(color => {
         defs.append("marker").attr("id", "arr-" + color.replace('#', ''))
             .attr("viewBox", "0 -4 8 8").attr("refX", 18).attr("refY", 0)
             .attr("markerWidth", 5).attr("markerHeight", 5).attr("orient", "auto")
@@ -1106,7 +1346,7 @@ function initD3Graph(signal, topology) {
     });
 
     // Layer distance from center
-    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.22, 2: Math.min(width, height) * 0.38, 3: Math.min(width, height) * 0.55, risk: Math.min(width, height) * 0.32 };
+    const layerRadius = { 0: 0, 1: Math.min(width, height) * 0.35, 2: Math.min(width, height) * 0.52, 3: Math.min(width, height) * 0.70, risk: Math.min(width, height) * 0.40 };
 
     // Custom radial-layer force
     function forceLayer(strength) {
@@ -1128,26 +1368,38 @@ function initD3Graph(signal, topology) {
 
     const simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
-            if (d.dashed) return 120;
-            return 100 + (d.value || 0) * 8;
-        }).strength(0.6))
-        .force("charge", d3.forceManyBody().strength(d => d.group === 'root' ? -1500 : d.group === 'risk' ? -250 : -600))
-        .force("layer", forceLayer(0.18))
-        .force("collide", d3.forceCollide().radius(d => d.radius + 20).strength(0.9));
+            if (d.dashed) return 300; 
+            if (d.target.group === 'ticker' || d.source.group === 'ticker') return 280;
+            return 250 + (d.value || 0) * 15;
+        }).strength(0.7))
+        .force("charge", d3.forceManyBody().strength(d => d.group === 'root' ? -5000 : d.group === 'risk' ? -2000 : -1500))
+        .force("layer", forceLayer(0.12)) 
+        .force("collide", d3.forceCollide().radius(d => d.radius + 140).strength(0.8));
 
     // Links
     const link = g.append("g").selectAll("line").data(links).enter().append("line")
-        .attr("stroke", d => d.dashed ? '#ff6b6b44' : '#444')
-        .attr("stroke-width", d => d.dashed ? 1 : Math.max(1.5, d.value * 0.6))
-        .attr("stroke-dasharray", d => d.dashed ? "6,4" : "none")
-        .attr("opacity", d => d.dashed ? 0.3 : 0.6)
+        .attr("stroke", d => d.dashed ? '#ff6b6b44' : d.contagion ? d.color : '#444')
+        .attr("stroke-width", d => d.dashed ? 1 : d.contagion ? 2 : Math.max(1.5, d.value * 0.6))
+        .attr("stroke-dasharray", d => d.dashed ? "6,4" : d.contagion ? "8,4" : "none")
+        .attr("opacity", d => d.dashed ? 0.3 : d.contagion ? 0.7 : 0.6)
         .attr("marker-end", d => "url(#arr-" + d.color.replace('#', '') + ")");
 
-    // Link labels (relationship reason on hover visibility handled via CSS)
+    // Animate contagion link dashes
+    link.filter(d => d.contagion).each(function() {
+        const el = d3.select(this);
+        el.style('animation', 'contagionFlow 1.5s linear infinite');
+    });
+
+    // Link labels (relationship reason on hover visibility handled via CSS/JS)
     linkLabel = g.append("g").selectAll("text").data(links).enter().append("text")
         .text(d => d.reason || '')
-        .attr("font-size", "8px").attr("fill", "#555").attr("text-anchor", "middle")
-        .attr("font-family", "sans-serif").style("pointer-events", "none").attr("opacity", 0);
+        .attr("font-size", "9px").attr("fill", "#8b9cb7").attr("text-anchor", "middle")
+        .attr("font-family", "JetBrains Mono, monospace").style("pointer-events", "none").attr("opacity", 0)
+        .style("paint-order", "stroke")
+        .style("stroke", "#060a12")
+        .style("stroke-width", "4px")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round");
 
     // Nodes
     const node = g.append("g").selectAll("g").data(nodes).enter().append("g")
@@ -1156,7 +1408,32 @@ function initD3Graph(signal, topology) {
     // Draw shapes based on group
     node.each(function(d) {
         const el = d3.select(this);
-        if (d.shape === 'diamond') {
+        if (d.shape === 'hexagon') {
+            // Hexagon for chokepoints
+            const r = d.radius;
+            const hex = Array.from({length: 6}, (_, i) => {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                return `${r * Math.cos(angle)},${r * Math.sin(angle)}`;
+            }).join(' ');
+            el.append("polygon")
+                .attr("points", hex)
+                .attr("fill", d.color).attr("opacity", 0.9)
+                .attr("stroke", d.color).attr("stroke-width", 2).attr("stroke-opacity", 0.6);
+        } else if (d.shape === 'triangle-down') {
+            // Inverted triangle for suppliers (inflow)
+            const s = d.radius;
+            el.append("path")
+                .attr("d", `M${-s},${-s*0.7} L${s},${-s*0.7} L0,${s} Z`)
+                .attr("fill", d.color).attr("opacity", 0.9)
+                .attr("stroke", d.color).attr("stroke-width", 1.5).attr("stroke-opacity", 0.5);
+        } else if (d.shape === 'triangle-up') {
+            // Triangle for customers (outflow)
+            const s = d.radius;
+            el.append("path")
+                .attr("d", `M${-s},${s*0.7} L${s},${s*0.7} L0,${-s} Z`)
+                .attr("fill", d.color).attr("opacity", 0.9)
+                .attr("stroke", d.color).attr("stroke-width", 1.5).attr("stroke-opacity", 0.5);
+        } else if (d.shape === 'diamond') {
             const s = d.radius;
             el.append("path")
                 .attr("d", `M0,${-s} L${s},0 L0,${s} L${-s},0 Z`)
@@ -1168,52 +1445,116 @@ function initD3Graph(signal, topology) {
                 .attr("filter", d.group === 'root' ? "url(#glow)" : null)
                 .attr("opacity", d.group === 'root' ? 1 : 0.85);
         }
+        // Exposure badge for contagion nodes
+        if (d.exposurePct) {
+            el.append("text")
+                .text(d.exposurePct)
+                .attr("dy", d.radius + 14)
+                .attr("fill", d.color).attr("font-size", "9px")
+                .attr("font-weight", "700").attr("font-family", "JetBrains Mono, monospace")
+                .attr("text-anchor", "middle").style("pointer-events", "none");
+        }
     });
 
-    // Labels — tickers always visible; effect/risk labels hidden until hover
+    function wrapSVGText(textSelection, maxWidth) {
+        textSelection.each(function(d) {
+            const node = d3.select(this);
+            const fullText = d.ticker || d.label;
+            if (!fullText || d.group === 'root') return;
+
+            const words = fullText.split(/\s+/);
+            if (words.length <= 1) return;
+
+            // Pre-calculate lines using a temporary tspan for measurement
+            node.text(null);
+            let lines = [];
+            let currentLine = [];
+            let tempTspan = node.append("tspan").attr("visibility", "hidden");
+
+            for (let n = 0; n < words.length; n++) {
+                currentLine.push(words[n]);
+                tempTspan.text(currentLine.join(" "));
+                if (tempTspan.node().getComputedTextLength() > maxWidth && currentLine.length > 1) {
+                    currentLine.pop();
+                    lines.push(currentLine.join(" "));
+                    currentLine = [words[n]];
+                }
+            }
+            lines.push(currentLine.join(" "));
+            tempTspan.remove();
+
+            // Render final tspans with consistent alignment
+            node.text(null).attr("x", 0);
+            const lineHeight = 1.1; // ems
+            const baseDy = d.group === 'contagion' ? d.radius + 40 : 4;
+            // Shift the entire block up to center it vertically
+            const totalOffset = (lines.length - 1) * 0.5 * lineHeight;
+
+            lines.forEach((line, i) => {
+                const dyValue = (i === 0) 
+                    ? (baseDy / 12 - totalOffset) + "em" 
+                    : lineHeight + "em";
+                node.append("tspan")
+                    .attr("x", 0)
+                    .attr("dy", dyValue)
+                    .text(line);
+            });
+        });
+    }
+
     nodeLabel = node.append("text")
+        .attr("x", 0)
         .text(d => {
             if (d.group === 'ticker') return d.ticker || d.label;
             if (d.group === 'root') return '';
-            if (d.group === 'risk') return d.label;
-            return truncate(d.label, 28);
+            return d.label;
         })
-        .attr("dy", 4)
         .attr("fill", d => {
             if (d.group === 'root') return '#0ea5e9';
             if (d.group === 'risk') return '#ff4d4d';
-            if (d.group === 'ticker') return '#060a12'; // Deep contrast for neon circles
+            if (d.group === 'ticker') return '#060a12';
+            if (d.group === 'contagion') return '#8b9cb7';
             return '#8b9cb7';
         })
         .attr("font-size", d => {
-            if (d.group === 'ticker') return "11px"; // Fixed small size for tickers
+            if (d.group === 'ticker') return "11px";
             if (d.group === 'risk') return "11px";
-            return 13 / initialTransform.k + "px"; // Responsive for descriptions
+            if (d.group === 'contagion') return "10px";
+            return 13 / initialTransform.k + "px";
         })
-        .attr("font-weight", d => d.group === 'ticker' ? "600" : "400")
+        .attr("font-weight", d => (d.group === 'ticker' || d.group === 'contagion') ? "600" : "400")
         .attr("font-family", "JetBrains Mono, monospace").style("pointer-events", "none")
-        .attr("opacity", d => (d.group === 'ticker') ? 1 : 0);
+        .attr("opacity", d => (d.group === 'ticker' || d.group === 'contagion') ? 1 : 0)
+        .style("paint-order", "stroke")
+        .style("stroke", d => d.group === 'ticker' ? "none" : "#060a12")
+        .style("stroke-width", d => d.group === 'ticker' ? "0px" : "4px")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round");
+
+    // Apply wrapping
+    nodeLabel.call(wrapSVGText, 120);
 
     function positionTopologyNodeLabels() {
-        const labelPadding = 12;
-        const edgePadding = 28;
+        const labelPadding = 40;
 
         nodeLabel.each(function(d) {
             const selection = d3.select(this);
 
-            if (d.group === 'ticker' || d.group === 'root') {
+            if (d.group === 'ticker' || d.group === 'root' || d.group === 'contagion') {
                 selection.attr('dx', 0).attr('text-anchor', 'middle');
                 return;
             }
 
-            const textWidth = this.getComputedTextLength ? this.getComputedTextLength() : String(d.label || '').length * 7;
-            const rightOverflow = d.x + d.radius + labelPadding + textWidth > width - edgePadding;
-            const leftOverflow = d.x - d.radius - labelPadding - textWidth < edgePadding;
-            const flipLeft = rightOverflow && !leftOverflow;
-
+            // Radiate text OUTWARD from center to prevent overlapping inner nodes
+            const isLeftHalf = d.x < cx;
+            const xPos = isLeftHalf ? -(d.radius + labelPadding) : d.radius + labelPadding;
+            
             selection
-                .attr('dx', flipLeft ? -(d.radius + labelPadding) : d.radius + labelPadding)
-                .attr('text-anchor', flipLeft ? 'end' : 'start');
+                .attr('x', xPos)
+                .attr('text-anchor', isLeftHalf ? 'end' : 'start');
+            
+            // Force all tspans to the same x-origin to prevent indentation artifacts
+            selection.selectAll("tspan").attr("x", xPos);
         });
     }
 
@@ -1222,13 +1563,7 @@ function initD3Graph(signal, topology) {
     let pinnedNode = null;
 
     function positionTopologyTooltip(event) {
-        if (isTopologyFullscreen) {
-            const x = Math.min(window.innerWidth - 340, Math.max(16, event.clientX + 16));
-            const y = Math.max(16, event.clientY - 20);
-            tooltip.style('left', `${x}px`).style('top', `${y}px`).style('right', 'auto').style('bottom', 'auto');
-            return;
-        }
-
+        // Consistently anchor tooltip to top-right of the container
         tooltip
             .style('left', 'auto')
             .style('right', '16px')
@@ -1244,15 +1579,23 @@ function initD3Graph(signal, topology) {
             if (sid === d.id) connected.add(tid);
             if (tid === d.id) connected.add(sid);
         });
+        
+        // Dim un-connected nodes
         node.transition().duration(200).style("opacity", o => connected.has(o.id) ? 1 : 0.12);
+
         // Reveal labels for connected nodes
         nodeLabel.transition().duration(200).attr("opacity", o => connected.has(o.id) ? 1 : 0);
+
+        // Dim un-connected links
         link.transition().duration(200).style("opacity", o => {
             const sid = typeof o.source === 'object' ? o.source.id : o.source;
             const tid = typeof o.target === 'object' ? o.target.id : o.target;
             return (sid === d.id || tid === d.id) ? 0.9 : 0.04;
         });
+
+        // Reveal connected link labels
         linkLabel.transition().duration(200).attr("opacity", o => {
+            if (d.group === 'root') return 0; // Prevent massive overlap in center
             const sid = typeof o.source === 'object' ? o.source.id : o.source;
             const tid = typeof o.target === 'object' ? o.target.id : o.target;
             return (sid === d.id || tid === d.id) ? 1 : 0;
@@ -1261,16 +1604,19 @@ function initD3Graph(signal, topology) {
 
     function resetFocus() {
         node.transition().duration(200).style("opacity", 1);
-        // Hide effect/risk labels again, keep ticker labels
-        nodeLabel.transition().duration(200).attr("opacity", d => d.group === 'ticker' ? 1 : 0);
+        // Hide effect/risk labels again, keep ticker and contagion labels
+        nodeLabel.transition().duration(200).attr("opacity", d => (d.group === 'ticker' || d.group === 'contagion') ? 1 : 0);
         link.transition().duration(200).style("opacity", 0.7);
         linkLabel.transition().duration(200).attr("opacity", 0);
     }
 
     function showTooltip(d, event) {
-        let groupLabel = { root: 'ROOT CAUSE', first_order: 'DIRECT EFFECT', second_order: 'RIPPLE EFFECT', ticker: 'TICKER', risk: 'THESIS RISK' }[d.group] || d.group;
+        let groupLabel = { root: 'ROOT CAUSE', first_order: 'DIRECT EFFECT', second_order: 'RIPPLE EFFECT', ticker: 'TICKER', risk: 'THESIS RISK', contagion: 'SUPPLY CHAIN' }[d.group] || d.group;
         if (d.group === 'ticker' && d.companyType) {
             groupLabel = d.companyType.toUpperCase();
+        }
+        if (d.group === 'contagion' && d.directionInfo) {
+            groupLabel = d.directionInfo;
         }
 
         const tickerDescriptor = d.group === 'ticker'
@@ -1358,14 +1704,14 @@ function initD3Graph(signal, topology) {
     constrainNodes();
     positionTopologyNodeLabels();
     link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
+    linkLabel.attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.75).attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.75);
     node.attr("transform", d => `translate(${d.x},${d.y})`);
 
     simulation.on("tick", () => {
         constrainNodes();
         positionTopologyNodeLabels();
         link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-        linkLabel.attr("x", d => (d.source.x + d.target.x) / 2).attr("y", d => (d.source.y + d.target.y) / 2);
+        linkLabel.attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.75).attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.75);
         node.attr("transform", d => `translate(${d.x},${d.y})`);
     });
 
@@ -1402,10 +1748,16 @@ function initImpactGraph(signal, topology) {
     const secondOrder = normalizeTextList(signal.second_order_effects).filter(Boolean);
     const mechanismCandidates = [...firstOrder, ...secondOrder].filter(Boolean);
     const mechanismLabels = [];
+    const mechanismDetails = [];
     for (const candidate of mechanismCandidates) {
-        const label = compactImpactLabel(candidate, 5);
+        const label = compactImpactLabel(candidate, 8); // Increased slightly for AI labels
+        const detail = (typeof candidate === 'object' && candidate !== null) 
+            ? (candidate.details || candidate.why_it_matters || candidate.label || "") 
+            : String(candidate);
+            
         if (label && !mechanismLabels.includes(label)) {
             mechanismLabels.push(label);
+            mechanismDetails.push(detail);
         }
         if (mechanismLabels.length >= 2) break;
     }
@@ -1580,7 +1932,7 @@ function initImpactGraph(signal, topology) {
     const mechanismNodes = mechanismLabels.slice(0, 2).map((label, index) => {
         const x = index === 0 ? cx - Math.min(240, width * 0.2) : cx + Math.min(240, width * 0.2);
         return {
-            ...buildMechanismCard(label, mechanismCandidates[index] || label, x),
+            ...buildMechanismCard(label, mechanismDetails[index] || label, x),
             id: `mech_${index}`,
         };
     });
@@ -1803,13 +2155,7 @@ function initImpactGraph(signal, topology) {
         .attr('d', curvePath);
 
     function positionImpactTooltip(event) {
-        if (isTopologyFullscreen) {
-            const x = Math.min(window.innerWidth - 340, Math.max(16, event.clientX + 16));
-            const y = Math.max(16, event.clientY - 20);
-            tooltip.style('left', `${x}px`).style('top', `${y}px`).style('right', 'auto').style('bottom', 'auto');
-            return;
-        }
-
+        // Consistently anchor tooltip to top-right of the container
         tooltip
             .style('left', 'auto')
             .style('right', '16px')

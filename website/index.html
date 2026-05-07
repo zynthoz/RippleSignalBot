@@ -130,6 +130,11 @@
         100% { transform: translateX(-50%); }
     }
 
+    @keyframes contagionFlow {
+        0% { stroke-dashoffset: 0; }
+        100% { stroke-dashoffset: -24; }
+    }
+
     /* Override browser autofill styles for dark theme */
     input:-webkit-autofill,
     input:-webkit-autofill:hover, 
@@ -384,10 +389,6 @@
       </a>
     </div>
     <div class="flex items-center gap-1">
-      <span
-        class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer p-2 rounded hover:bg-surface-card-elevated"
-        style='font-variation-settings: "FILL" 0;'>sensors</span>
-
       <!-- Notification Bell -->
       <div class="relative" id="notif-trigger">
         <span
@@ -592,7 +593,7 @@
 
   </div> <!-- End App Dashboard -->
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=contagion21"></script>
 </body>
 
 </html>
