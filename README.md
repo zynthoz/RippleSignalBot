@@ -1,5 +1,5 @@
 # Argus AI
-### Check it out at https://try-argus-ai.vercel.app/dashboard
+#### https://try-argus-ai.vercel.app
 
 Argus AI is a market-catalyst intelligence system that turns noisy finance headlines into structured, tradable narratives.
 
